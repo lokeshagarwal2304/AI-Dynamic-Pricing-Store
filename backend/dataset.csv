@@ -1,0 +1,66 @@
+product_id,product_name,category,base_price,inventory_level,competitor_avg_price,sales_last_30_days,rating,review_count,season,brand_tier,material_cost,target_price
+1,Premium Cotton T-Shirt,T-Shirts,29.99,150,28.50,145,4.2,128,Summer,Premium,8.50,27.99
+2,Classic Denim Jeans,Jeans,89.99,75,92.00,89,4.5,203,All-Season,Premium,32.00,94.99
+3,Elegant Summer Dress,Dresses,79.99,45,75.50,67,4.7,89,Summer,Mid-Range,28.00,74.99
+4,Urban Bomber Jacket,Jackets,129.99,32,135.00,23,4.3,156,Fall,Premium,45.00,139.99
+5,Running Sneakers,Shoes,119.99,88,115.00,134,4.6,274,All-Season,Premium,42.00,109.99
+6,Leather Crossbody Bag,Accessories,149.99,23,155.00,45,4.8,92,All-Season,Luxury,55.00,159.99
+7,Wool Blend Sweater,Sweaters,69.99,67,72.00,78,4.1,145,Winter,Mid-Range,25.00,64.99
+8,Casual Button-Down Shirt,Shirts,49.99,112,48.00,98,4.4,187,All-Season,Mid-Range,18.00,52.99
+9,High-Waisted Leggings,Activewear,39.99,198,42.00,156,4.3,312,All-Season,Mid-Range,12.00,34.99
+10,Canvas Sneakers,Shoes,59.99,143,58.50,89,4.0,98,All-Season,Budget,22.00,57.99
+11,Silk Scarf,Accessories,89.99,34,95.00,34,4.6,67,All-Season,Luxury,32.00,94.99
+12,Denim Jacket,Jackets,99.99,56,102.00,67,4.2,134,Fall,Mid-Range,35.00,89.99
+13,Athletic Shorts,Shorts,34.99,178,32.50,123,4.3,94,Summer,Mid-Range,11.00,31.99
+14,Maxi Dress,Dresses,89.99,67,88.00,78,4.5,156,Summer,Mid-Range,31.00,84.99
+15,Leather Boots,Shoes,179.99,34,185.00,45,4.7,189,Winter,Premium,68.00,189.99
+16,Cashmere Sweater,Sweaters,199.99,23,210.00,34,4.8,78,Winter,Luxury,85.00,219.99
+17,Polo Shirt,Shirts,39.99,145,38.50,112,4.2,167,Summer,Mid-Range,14.00,37.99
+18,Yoga Pants,Activewear,49.99,189,52.00,134,4.4,245,All-Season,Mid-Range,16.00,44.99
+19,Formal Blazer,Jackets,159.99,45,165.00,23,4.6,89,All-Season,Premium,58.00,169.99
+20,Ankle Boots,Shoes,129.99,67,132.00,56,4.3,123,Fall,Premium,48.00,124.99
+21,Graphic T-Shirt,T-Shirts,24.99,234,23.50,189,4.1,234,All-Season,Budget,7.50,22.99
+22,Skinny Jeans,Jeans,79.99,89,82.00,78,4.4,178,All-Season,Mid-Range,28.00,84.99
+23,Cocktail Dress,Dresses,129.99,34,135.00,23,4.7,67,All-Season,Premium,48.00,139.99
+24,Puffer Jacket,Jackets,149.99,45,152.00,34,4.5,112,Winter,Premium,52.00,144.99
+25,Cross-Training Shoes,Shoes,99.99,78,98.50,89,4.2,156,All-Season,Mid-Range,38.00,94.99
+26,Designer Handbag,Accessories,299.99,12,320.00,15,4.9,45,All-Season,Luxury,125.00,329.99
+27,Merino Wool Sweater,Sweaters,119.99,45,125.00,56,4.6,89,Winter,Premium,48.00,114.99
+28,Oxford Shirt,Shirts,69.99,89,72.00,67,4.5,134,All-Season,Premium,26.00,74.99
+29,Sports Bra,Activewear,29.99,167,31.50,145,4.3,189,All-Season,Mid-Range,9.50,27.99
+30,Loafers,Shoes,89.99,67,92.00,45,4.1,78,All-Season,Mid-Range,34.00,87.99
+31,Statement Necklace,Accessories,59.99,45,62.00,34,4.4,56,All-Season,Mid-Range,22.00,64.99
+32,Trench Coat,Jackets,199.99,23,205.00,18,4.8,67,Fall,Luxury,78.00,209.99
+33,Midi Skirt,Skirts,49.99,89,48.50,67,4.2,89,All-Season,Mid-Range,18.00,47.99
+34,Hiking Boots,Shoes,159.99,34,165.00,23,4.7,123,All-Season,Premium,62.00,154.99
+35,Cardigan,Sweaters,79.99,78,82.00,56,4.3,112,Fall,Mid-Range,28.00,77.99
+36,Tank Top,T-Shirts,19.99,189,18.50,167,4.0,145,Summer,Budget,6.00,17.99
+37,Wide-Leg Pants,Pants,69.99,67,72.50,45,4.4,78,All-Season,Mid-Range,25.00,67.99
+38,Evening Gown,Dresses,249.99,15,260.00,12,4.9,34,All-Season,Luxury,98.00,269.99
+39,Windbreaker,Jackets,79.99,89,78.00,67,4.1,89,Spring,Mid-Range,28.00,74.99
+40,Ballet Flats,Shoes,69.99,112,71.00,78,4.2,134,All-Season,Mid-Range,26.00,67.99
+41,Watch,Accessories,199.99,34,210.00,23,4.6,67,All-Season,Premium,85.00,219.99
+42,Hoodie,Sweaters,59.99,134,58.50,112,4.3,189,Fall,Mid-Range,22.00,54.99
+43,Henley Shirt,Shirts,44.99,89,46.00,67,4.2,123,All-Season,Mid-Range,16.50,42.99
+44,Compression Leggings,Activewear,54.99,145,57.00,123,4.5,234,All-Season,Mid-Range,18.50,52.99
+45,Sandals,Shoes,49.99,123,48.50,89,4.0,156,Summer,Mid-Range,18.00,47.99
+46,Clutch Bag,Accessories,79.99,45,82.50,34,4.4,67,All-Season,Mid-Range,28.00,84.99
+47,Peacoat,Jackets,179.99,23,185.00,18,4.7,56,Winter,Premium,68.00,189.99
+48,Pencil Skirt,Skirts,59.99,67,61.50,45,4.3,89,All-Season,Mid-Range,22.00,57.99
+49,Work Boots,Shoes,139.99,45,142.00,34,4.5,78,All-Season,Premium,52.00,134.99
+50,Turtleneck,Sweaters,49.99,89,52.00,67,4.2,112,Winter,Mid-Range,18.00,47.99
+51,V-Neck T-Shirt,T-Shirts,27.99,167,26.50,145,4.1,178,All-Season,Mid-Range,8.50,25.99
+52,Straight-Leg Jeans,Jeans,74.99,78,77.00,56,4.3,134,All-Season,Mid-Range,26.00,72.99
+53,Wrap Dress,Dresses,69.99,56,72.00,45,4.4,89,All-Season,Mid-Range,25.00,67.99
+54,Leather Jacket,Jackets,249.99,18,260.00,15,4.8,78,All-Season,Luxury,98.00,269.99
+55,Running Shoes,Shoes,109.99,89,112.00,78,4.4,189,All-Season,Premium,42.00,104.99
+56,Tote Bag,Accessories,89.99,67,92.50,45,4.2,89,All-Season,Mid-Range,32.00,87.99
+57,Pullover Sweater,Sweaters,64.99,78,67.00,56,4.1,123,Fall,Mid-Range,24.00,62.99
+58,Flannel Shirt,Shirts,54.99,89,56.50,67,4.3,145,Fall,Mid-Range,20.00,52.99
+59,Workout Shorts,Activewear,34.99,145,36.00,123,4.2,167,Summer,Mid-Range,12.00,32.99
+60,Dress Shoes,Shoes,149.99,34,155.00,23,4.6,89,All-Season,Premium,58.00,159.99
+61,Bracelet,Accessories,39.99,78,42.00,56,4.1,67,All-Season,Mid-Range,14.00,37.99
+62,Parka,Jackets,199.99,23,205.00,18,4.7,45,Winter,Premium,78.00,194.99
+63,A-Line Skirt,Skirts,44.99,89,46.50,67,4.2,78,All-Season,Mid-Range,16.50,42.99
+64,Chelsea Boots,Shoes,119.99,45,125.00,34,4.4,112,Fall,Premium,45.00,124.99
+65,Zip-Up Hoodie,Sweaters,69.99,112,71.50,89,4.3,156,Fall,Mid-Range,25.00,67.99
