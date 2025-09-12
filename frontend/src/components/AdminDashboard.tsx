@@ -1,48 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Upload, RefreshCw, BarChart3, TrendingUp, AlertCircle, 
-  CheckCircle, Database, Brain, Target, Activity 
-} from 'lucide-react';
-import { apiService, ModelMetrics } from '../services/apiService';
+import React, { useState } from 'react';
+import { Upload, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 
-export const AdminDashboard: React.FC = () => {
-  const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [retraining, setRetraining] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [serverOnline, setServerOnline] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState('');
+const AdminDashboard: React.FC = () => {
+  const [isTraining, setIsTraining] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  const loadMetrics = async () => {
+  React.useEffect(() => {
+    checkServerStatus();
+  }, []);
+
+  const checkServerStatus = async () => {
     try {
-      setLoading(true);
-      const isOnline = await apiService.checkServerStatus();
-      setServerOnline(isOnline);
-      
-      if (isOnline) {
-        const metricsData = await apiService.getModelMetrics();
-        setMetrics(metricsData);
+      const response = await fetch('http://localhost:8000/');
+      if (response.ok) {
+        setServerStatus('online');
+      } else {
+        setServerStatus('offline');
       }
-    } catch (error) {
-      console.error('Error loading metrics:', error);
-    } finally {
-      setLoading(false);
+    } catch {
+      setServerStatus('offline');
     }
   };
 
   const handleRetrain = async () => {
+    setIsTraining(true);
     try {
-      setRetraining(true);
-      const response = await apiService.retrainModel();
-      setMetrics(response.metrics);
-      setUploadMessage('Model retrained successfully!');
-      setTimeout(() => setUploadMessage(''), 3000);
+      const response = await fetch('http://localhost:8000/train', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        alert('Model retrained successfully!');
+      } else {
+        alert('Failed to retrain model. Please check the server.');
+      }
     } catch (error) {
-      console.error('Error retraining model:', error);
-      setUploadMessage('Error retraining model');
-      setTimeout(() => setUploadMessage(''), 3000);
+      alert('Error connecting to server. Please ensure the backend is running.');
     } finally {
-      setRetraining(false);
+      setIsTraining(false);
     }
   };
 
@@ -50,285 +45,143 @@ export const AdminDashboard: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setUploadStatus('uploading');
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
-      setUploading(true);
-      const response = await apiService.uploadData(file);
-      setMetrics(response.metrics);
-      setUploadMessage(`${response.message} - ${response.filename}`);
-      setTimeout(() => setUploadMessage(''), 5000);
+      const response = await fetch('http://localhost:8000/upload-data', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (response.ok) {
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus(null), 3000);
+      } else {
+        setUploadStatus('error');
+        setTimeout(() => setUploadStatus(null), 3000);
+      }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      setUploadMessage('Error uploading file');
-      setTimeout(() => setUploadMessage(''), 3000);
-    } finally {
-      setUploading(false);
+      setUploadStatus('error');
+      setTimeout(() => setUploadStatus(null), 3000);
     }
   };
-
-  useEffect(() => {
-    loadMetrics();
-  }, []);
-
-  const getMetricColor = (value: number, type: 'r2' | 'rmse' | 'mse') => {
-    switch (type) {
-      case 'r2':
-        return value >= 0.8 ? 'text-green-600' : value >= 0.6 ? 'text-yellow-600' : 'text-red-600';
-      case 'rmse':
-        return value <= 5 ? 'text-green-600' : value <= 10 ? 'text-yellow-600' : 'text-red-600';
-      case 'mse':
-        return value <= 25 ? 'text-green-600' : value <= 100 ? 'text-yellow-600' : 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
-  const getMetricStatus = (value: number, type: 'r2' | 'rmse' | 'mse') => {
-    switch (type) {
-      case 'r2':
-        return value >= 0.8 ? 'Excellent' : value >= 0.6 ? 'Good' : 'Needs Improvement';
-      case 'rmse':
-        return value <= 5 ? 'Excellent' : value <= 10 ? 'Good' : 'Needs Improvement';
-      case 'mse':
-        return value <= 25 ? 'Excellent' : value <= 100 ? 'Good' : 'Needs Improvement';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading model metrics...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
-          <p className="text-gray-600">Monitor and manage your AI pricing model</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadMetrics}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={handleRetrain}
-            disabled={retraining || !serverOnline}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            <Brain className={`w-4 h-4 ${retraining ? 'animate-spin' : ''}`} />
-            {retraining ? 'Retraining...' : 'Retrain Model'}
-          </button>
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Dashboard</h2>
+        <p className="text-gray-600">
+          Manage your AI pricing model, upload new data, and monitor system performance.
+        </p>
+      </div>
+
+      {/* Server Status */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+        <div className="flex items-center space-x-3">
+          {serverStatus === 'online' ? (
+            <>
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <span className="text-green-700">AI Service Online</span>
+            </>
+          ) : serverStatus === 'offline' ? (
+            <>
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <span className="text-red-700">AI Service Offline</span>
+              <span className="text-sm text-gray-500 ml-2">
+                (Start backend server: cd backend && python run.py)
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
+              <span className="text-gray-600">Checking status...</span>
+            </>
+          )}
         </div>
       </div>
 
-      {!serverOnline && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <div>
-              <h3 className="font-medium text-red-800">Backend Server Offline</h3>
-              <p className="text-sm text-red-700 mt-1">
-                Please start the Python backend server to access model metrics and admin features.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {uploadMessage && (
-        <div className={`p-4 rounded-lg ${
-          uploadMessage.includes('Error') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
-        }`}>
-          <div className="flex items-center gap-2">
-            {uploadMessage.includes('Error') ? 
-              <AlertCircle className="w-5 h-5" /> : 
-              <CheckCircle className="w-5 h-5" />
-            }
-            <span>{uploadMessage}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Model Performance Metrics */}
-      {metrics && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">R² Score</p>
-                  <p className={`text-2xl font-bold ${getMetricColor(metrics.r2_score, 'r2')}`}>
-                    {metrics.r2_score.toFixed(3)}
-                  </p>
-                </div>
-                <Target className={`w-8 h-8 ${getMetricColor(metrics.r2_score, 'r2')}`} />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">{getMetricStatus(metrics.r2_score, 'r2')}</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">RMSE</p>
-                  <p className={`text-2xl font-bold ${getMetricColor(metrics.rmse, 'rmse')}`}>
-                    {metrics.rmse.toFixed(2)}
-                  </p>
-                </div>
-                <Activity className={`w-8 h-8 ${getMetricColor(metrics.rmse, 'rmse')}`} />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">{getMetricStatus(metrics.rmse, 'rmse')}</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">MSE</p>
-                  <p className={`text-2xl font-bold ${getMetricColor(metrics.mse, 'mse')}`}>
-                    {metrics.mse.toFixed(2)}
-                  </p>
-                </div>
-                <BarChart3 className={`w-8 h-8 ${getMetricColor(metrics.mse, 'mse')}`} />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">{getMetricStatus(metrics.mse, 'mse')}</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Training Samples</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {metrics.training_samples.toLocaleString()}
-                  </p>
-                </div>
-                <Database className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">{metrics.model_type}</p>
-            </div>
-          </div>
-
-          {/* Feature Importance */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Feature Importance</h3>
-            <div className="space-y-3">
-              {Object.entries(metrics.feature_importance)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 8)
-                .map(([feature, importance]) => (
-                  <div key={feature} className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 capitalize">
-                      {feature.replace('_', ' ').replace(' encoded', '')}
-                    </span>
-                    <div className="flex items-center gap-2 flex-1 ml-4">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(importance * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-gray-600 w-12 text-right">
-                        {(importance * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Data Upload Section */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Training Data</h3>
+      {/* Model Management */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Model Management</h3>
         <div className="space-y-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-            <div className="text-center">
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  Upload a CSV file with product data to retrain the model
-                </p>
-                <p className="text-xs text-gray-500">
-                  Required columns: product_name, category, base_price, inventory_level, competitor_avg_price, 
-                  sales_last_30_days, rating, review_count, season, brand_tier, material_cost, target_price
-                </p>
-              </div>
-              <div className="mt-4">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    disabled={uploading || !serverOnline}
-                    className="hidden"
-                  />
-                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                    {uploading ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Choose File
-                      </>
-                    )}
-                  </span>
-                </label>
-              </div>
-            </div>
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">Retrain Model</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Retrain the pricing model with the latest data to improve accuracy.
+            </p>
+            <button
+              onClick={handleRetrain}
+              disabled={isTraining || serverStatus !== 'online'}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isTraining ? 'animate-spin' : ''}`} />
+              {isTraining ? 'Training...' : 'Retrain Model'}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Model Information */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Model Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">Performance Metrics Explained</h4>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>R² Score:</strong> Measures how well the model explains price variations (0-1, higher is better)</p>
-              <p><strong>RMSE:</strong> Root Mean Square Error - average prediction error in dollars (lower is better)</p>
-              <p><strong>MSE:</strong> Mean Square Error - squared average of prediction errors (lower is better)</p>
-            </div>
+      {/* Data Upload */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Management</h3>
+        <div>
+          <h4 className="font-medium text-gray-900 mb-2">Upload Training Data</h4>
+          <p className="text-sm text-gray-600 mb-4">
+            Upload a CSV file with new product data to expand the training dataset.
+          </p>
+          
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <label className="cursor-pointer">
+              <span className="text-blue-600 hover:text-blue-500">Choose CSV file</span>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+                disabled={serverStatus !== 'online'}
+              />
+            </label>
+            <p className="text-xs text-gray-500 mt-1">
+              CSV format: product_name, category, base_price, inventory_level, etc.
+            </p>
           </div>
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">Model Status</h4>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                {serverOnline ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-red-600" />
-                )}
-                <span className="text-sm">
-                  {serverOnline ? 'Model is online and ready' : 'Model is offline'}
-                </span>
-              </div>
-              {metrics && (
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm">
-                    Trained on {metrics.training_samples} samples using {metrics.model_type}
-                  </span>
-                </div>
-              )}
+
+          {uploadStatus && (
+            <div className={`mt-4 p-3 rounded-md ${
+              uploadStatus === 'success' ? 'bg-green-50 text-green-800' :
+              uploadStatus === 'error' ? 'bg-red-50 text-red-800' :
+              'bg-blue-50 text-blue-800'
+            }`}>
+              {uploadStatus === 'success' && 'File uploaded successfully!'}
+              {uploadStatus === 'error' && 'Upload failed. Please try again.'}
+              {uploadStatus === 'uploading' && 'Uploading file...'}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h4 className="font-medium text-gray-900 mb-2">Model Type</h4>
+          <p className="text-2xl font-bold text-blue-600">Random Forest</p>
+          <p className="text-sm text-gray-500">100 estimators, max depth 10</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h4 className="font-medium text-gray-900 mb-2">Training Data</h4>
+          <p className="text-2xl font-bold text-green-600">65+ Products</p>
+          <p className="text-sm text-gray-500">Across multiple categories</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h4 className="font-medium text-gray-900 mb-2">Features</h4>
+          <p className="text-2xl font-bold text-purple-600">10 Variables</p>
+          <p className="text-sm text-gray-500">Price, inventory, ratings, etc.</p>
         </div>
       </div>
     </div>
