@@ -14,7 +14,7 @@ function App() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <ShoppingCart className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Dynamic Pricing Store</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">AI Dynamic Pricing Store</span>
             </div>
             <div className="flex space-x-8">
               <button
@@ -37,7 +37,7 @@ function App() {
                 }`}
               >
                 <Settings className="h-4 w-4 mr-1" />
-                Dashboard
+                Admin Dashboard
               </button>
               <button
                 onClick={() => setActiveTab('performance')}
