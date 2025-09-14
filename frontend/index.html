@@ -2,9 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/ai-logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Dynamic Pricing Store</title>
+    <title>AI Dynamic Price Store</title>
+    
+    <!-- Theme Script - Must run before React to prevent flickering -->
+    <script>
+      (function() {
+        try {
+          // Get theme from localStorage or default to light
+          var savedTheme = localStorage.getItem('theme');
+          var theme = savedTheme || 'light';
+          
+          // Apply theme immediately to html element
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          
+          // Save default theme if none exists
+          if (!savedTheme) {
+            localStorage.setItem('theme', theme);
+          }
+        } catch (e) {
+          // Fallback to light theme if localStorage fails
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

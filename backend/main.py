@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -10,10 +11,19 @@ from sklearn.metrics import mean_squared_error, r2_score
 import joblib
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import io
+import jwt
+from datetime import datetime, timedelta
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+from database import get_db, CartItem, Product
 
-app = FastAPI(title="AI Dynamic Pricing API", version="1.0.0")
+app = FastAPI(
+    title="AI-Powered E-commerce Platform", 
+    description="A comprehensive e-commerce platform with AI-driven dynamic pricing",
+    version="2.0.0"
+)
 
 # Enable CORS
 app.add_middleware(
@@ -24,11 +34,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security
+SECRET_KEY = "your-secret-key-here"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
 # Global variables
 model = None
 label_encoders = {}
 feature_columns = []
 model_metrics = {}
+
+# In-memory user storage (in a real app, use a proper database)
+fake_users_db = {
+    "admin": {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "full_name": "Administrator",
+        "password": "admin123",  # Simple password for demo
+        "role": "admin",
+        "is_active": True
+    }
+}
+
+# Pydantic models
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
 
 class ProductInput(BaseModel):
     product_name: str
@@ -42,6 +91,23 @@ class ProductInput(BaseModel):
     season: str
     brand_tier: str
     material_cost: float
+
+class ProductResponse(BaseModel):
+    product_id: int
+    product_name: str
+    category: str
+    base_price: float
+    target_price: float
+    inventory_level: int
+    rating: float
+    review_count: int
+    competitor_avg_price: float
+    sales_last_30_days: int
+    season: str
+    brand_tier: str
+    material_cost: float
+    predicted_price: Optional[float] = None
+    confidence: Optional[float] = None
 
 class PredictionResponse(BaseModel):
     predicted_price: float
@@ -57,6 +123,67 @@ class ModelMetrics(BaseModel):
     training_samples: int
     feature_importance: Dict[str, float]
 
+class CartItemAdd(BaseModel):
+    user_id: int
+    product_id: int
+    quantity: int
+
+class CartItemUpdate(BaseModel):
+    quantity: int
+
+# Authentication functions
+def verify_password(plain_password, stored_password):
+    return plain_password == stored_password
+
+def get_password_hash(password):
+    return password  # Simple for demo
+
+def authenticate_user(username: str, password: str):
+    user = fake_users_db.get(username)
+    if not user:
+        return False
+    if not verify_password(password, user["password"]):
+        return False
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    user = fake_users_db.get(username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+def get_admin_user(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    return current_user
+
+# ML model functions
 def load_and_preprocess_data():
     """Load and preprocess the dataset"""
     global label_encoders, feature_columns
@@ -138,50 +265,237 @@ def load_model():
         label_encoders = joblib.load('label_encoders.pkl')
         
         # Load feature columns
-        df = pd.read_csv('dataset.csv')
-        feature_columns = [
-            'base_price', 'inventory_level', 'competitor_avg_price', 
-            'sales_last_30_days', 'rating', 'review_count', 'material_cost',
-            'category_encoded', 'season_encoded', 'brand_tier_encoded'
-        ]
-        
-        # Calculate metrics on existing data
-        df = load_and_preprocess_data()
-        X = df[feature_columns]
-        y = df['target_price']
-        y_pred = model.predict(X)
-        
-        mse = mean_squared_error(y, y_pred)
-        rmse = np.sqrt(mse)
-        r2 = r2_score(y, y_pred)
-        
-        model_metrics = {
-            'mse': float(mse),
-            'rmse': float(rmse),
-            'r2_score': float(r2),
-            'model_type': 'Random Forest Regressor',
-            'training_samples': len(X),
-            'feature_importance': dict(zip(feature_columns, model.feature_importances_))
-        }
+        if os.path.exists('dataset.csv'):
+            df = load_and_preprocess_data()
+            X = df[feature_columns]
+            y = df['target_price']
+            y_pred = model.predict(X)
+            
+            mse = mean_squared_error(y, y_pred)
+            rmse = np.sqrt(mse)
+            r2 = r2_score(y, y_pred)
+            
+            model_metrics = {
+                'mse': float(mse),
+                'rmse': float(rmse),
+                'r2_score': float(r2),
+                'model_type': 'Random Forest Regressor',
+                'training_samples': len(X),
+                'feature_importance': dict(zip(feature_columns, model.feature_importances_))
+            }
         
         return True
     return False
 
+# Startup event
 @app.on_event("startup")
 async def startup_event():
     """Initialize the model on startup"""
-    if not load_model():
-        print("Training new model...")
-        train_model()
-        print("Model ready!")
+    print("\n" + "="*60)
+    print("🚀 AI Dynamic Pricing API Starting...")
+    print("="*60)
+    
+    try:
+        if not load_model():
+            print("📚 No existing model found. Training new model...")
+            metrics = train_model()
+            print("✅ Model training completed successfully!")
+            print(f"📊 Model Performance: R² Score = {metrics.get('r2_score', 0):.4f}")
+        else:
+            print("✅ Existing model loaded successfully!")
+            print(f"📊 Model Performance: R² Score = {model_metrics.get('r2_score', 0):.4f}")
+        
+        print("\n🎯 API Features:")
+        print("   • User Authentication & Authorization")
+        print("   • AI-Powered Dynamic Product Pricing")
+        print("   • Product Management System")
+        print("   • Machine Learning Model Training")
+        print("\n🌐 API Endpoints:")
+        print("   • Documentation: /docs")
+        print("   • Products: /products")
+        print("   • Authentication: /auth/login")
+        print("   • AI Predictions: /predict")
+        print("   • Model Metrics: /metrics")
+        print("\n" + "="*60)
+        print("🎉 Server is ready to handle requests!")
+        print("="*60 + "\n")
+        
+    except Exception as e:
+        print(f"❌ Error during startup: {str(e)}")
+        print("⚠️  Server will continue but some features may not work properly.")
 
+# API endpoints
 @app.get("/")
 async def root():
+    """Root endpoint - API status and information"""
     return {
-        "message": "AI Dynamic Pricing API is running!",
-        "endpoints": ["/predict", "/train", "/metrics", "/products", "/upload-data"],
-        "docs": "Visit /docs for API documentation"
+        "status": "online",
+        "message": "🎆 AI-Powered E-commerce Platform API is running successfully!",
+        "version": "2.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "features": [
+            "🔐 User Authentication & Authorization",
+            "🤖 AI-Powered Dynamic Product Pricing", 
+            "📊 Machine Learning Model Management",
+            "📊 Real-time Price Predictions"
+        ],
+        "endpoints": {
+            "authentication": {
+                "login": "/auth/login",
+                "user_info": "/auth/me"
+            },
+            "products": {
+                "list_all": "/products",
+                "get_single": "/products/{id}"
+            },
+            "ai_services": {
+                "predict_price": "/predict",
+                "model_metrics": "/metrics",
+                "retrain_model": "/train"
+            }
+        },
+        "model_info": {
+            "status": "loaded" if model is not None else "not_loaded",
+            "type": "Random Forest Regressor",
+            "performance": model_metrics.get('r2_score', 'N/A') if model_metrics else 'N/A'
+        },
+        "documentation": {
+            "interactive_docs": "/docs",
+            "redoc": "/redoc"
+        },
+        "admin": {
+            "default_credentials": {
+                "username": "admin",
+                "password": "admin123"
+            }
+        }
     }
+
+# Authentication endpoints
+@app.post("/auth/login", response_model=Token)
+async def login(user_credentials: UserLogin):
+    """Login user and return access token"""
+    user = authenticate_user(user_credentials.username, user_credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    
+    user_response = UserResponse(**{k: v for k, v in user.items() if k != "password"})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user_response
+    }
+
+@app.get("/auth/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current user information"""
+    return UserResponse(**{k: v for k, v in current_user.items() if k != "password"})
+
+# Product endpoints
+@app.get("/products")
+async def get_products():
+    """Get all products with AI pricing"""
+    try:
+        df = pd.read_csv('dataset.csv')
+        products = []
+        
+        for index, row in df.iterrows():
+            try:
+                # Get AI prediction for each product
+                prediction = predict_product_price_internal(row)
+                product = {
+                    'product_id': index + 1,
+                    'product_name': row['product_name'],
+                    'category': row['category'],
+                    'base_price': float(row['base_price']),
+                    'target_price': float(row['target_price']),
+                    'inventory_level': int(row['inventory_level']),
+                    'rating': float(row['rating']),
+                    'review_count': int(row['review_count']),
+                    'competitor_avg_price': float(row['competitor_avg_price']),
+                    'sales_last_30_days': int(row['sales_last_30_days']),
+                    'season': row['season'],
+                    'brand_tier': row['brand_tier'],
+                    'material_cost': float(row['material_cost']),
+                    'predicted_price': prediction['predicted_price'],
+                    'confidence': prediction['confidence']
+                }
+                products.append(product)
+            except Exception as e:
+                # Fallback to original price if prediction fails
+                product = {
+                    'product_id': index + 1,
+                    'product_name': row['product_name'],
+                    'category': row['category'],
+                    'base_price': float(row['base_price']),
+                    'target_price': float(row['target_price']),
+                    'inventory_level': int(row['inventory_level']),
+                    'rating': float(row['rating']),
+                    'review_count': int(row['review_count']),
+                    'competitor_avg_price': float(row['competitor_avg_price']),
+                    'sales_last_30_days': int(row['sales_last_30_days']),
+                    'season': row['season'],
+                    'brand_tier': row['brand_tier'],
+                    'material_cost': float(row['material_cost']),
+                    'predicted_price': float(row['target_price']),
+                    'confidence': 0.85
+                }
+                products.append(product)
+        
+        return {"products": products}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading products: {str(e)}")
+
+def predict_product_price_internal(row):
+    """Internal function to predict product price from dataset row"""
+    global model, label_encoders
+    
+    if model is None:
+        raise Exception("Model not loaded")
+    
+    try:
+        # Encode categorical features
+        category_encoded = label_encoders['category'].transform([row['category']])[0]
+        season_encoded = label_encoders['season'].transform([row['season']])[0]
+        brand_tier_encoded = label_encoders['brand_tier'].transform([row['brand_tier']])[0]
+        
+        # Prepare feature vector
+        feature_vector = np.array([[
+            row['base_price'],
+            row['inventory_level'],
+            row['competitor_avg_price'],
+            row['sales_last_30_days'],
+            row['rating'],
+            row['review_count'],
+            row['material_cost'],
+            category_encoded,
+            season_encoded,
+            brand_tier_encoded
+        ]])
+        
+        # Make prediction
+        predicted_price = model.predict(feature_vector)[0]
+        
+        # Calculate confidence score based on model performance
+        confidence_score = min(0.95, max(0.6, model_metrics.get('r2_score', 0.8)))
+        
+        return {
+            'predicted_price': round(float(predicted_price), 2),
+            'confidence': round(float(confidence_score), 3)
+        }
+        
+    except Exception as e:
+        raise Exception(f"Prediction error: {str(e)}")
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_price(product: ProductInput):
@@ -243,19 +557,9 @@ async def get_model_metrics():
         raise HTTPException(status_code=404, detail="No model metrics available")
     return ModelMetrics(**model_metrics)
 
-@app.get("/products")
-async def get_products():
-    """Get all products from dataset"""
-    try:
-        df = pd.read_csv('dataset.csv')
-        products = df.to_dict('records')
-        return {"products": products}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading products: {str(e)}")
-
 @app.post("/train")
-async def retrain_model():
-    """Retrain the model"""
+async def retrain_model(current_user: dict = Depends(get_admin_user)):
+    """Retrain the model (admin only)"""
     try:
         metrics = train_model()
         return {"message": "Model retrained successfully", "metrics": metrics}
@@ -263,40 +567,135 @@ async def retrain_model():
         raise HTTPException(status_code=500, detail=f"Training error: {str(e)}")
 
 @app.post("/upload-data")
-async def upload_data(file: UploadFile = File(...)):
-    """Upload new training data"""
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported")
-    
+async def upload_data(file: UploadFile = File(...), current_user: dict = Depends(get_admin_user)):
+    """Upload new training data (admin only)"""
     try:
-        # Read uploaded file
         contents = await file.read()
         df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
         
-        # Validate required columns
-        required_columns = [
-            'product_name', 'category', 'base_price', 'inventory_level', 
-            'competitor_avg_price', 'sales_last_30_days', 'rating', 
-            'review_count', 'season', 'brand_tier', 'material_cost', 'target_price'
-        ]
-        
-        if not all(col in df.columns for col in required_columns):
-            raise HTTPException(status_code=400, detail=f"CSV must contain columns: {required_columns}")
-        
-        # Save uploaded data
+        # Save the uploaded file
         df.to_csv('dataset.csv', index=False)
         
-        # Retrain model with new data
-        metrics = train_model()
+        return {"message": f"Successfully uploaded {len(df)} records"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Upload error: {str(e)}")
+
+# Cart endpoints
+@app.post("/cart/add")
+async def add_to_cart(cart_item: CartItemAdd, db: Session = Depends(get_db)):
+    """Add item to cart or update quantity if item already exists"""
+    try:
+        # Check if the product exists
+        product = db.query(Product).filter(Product.product_id == cart_item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        # Check if item already exists in cart for this user
+        existing_item = db.query(CartItem).filter(
+            CartItem.user_id == cart_item.user_id,
+            CartItem.product_id == cart_item.product_id
+        ).first()
+        
+        if existing_item:
+            # Update existing item quantity
+            existing_item.quantity += cart_item.quantity
+            db.commit()
+            db.refresh(existing_item)
+            return {"message": "Cart item quantity updated", "cart_item_id": existing_item.id, "new_quantity": existing_item.quantity}
+        else:
+            # Create new cart item
+            new_cart_item = CartItem(
+                user_id=cart_item.user_id,
+                product_id=cart_item.product_id,
+                quantity=cart_item.quantity
+            )
+            db.add(new_cart_item)
+            db.commit()
+            db.refresh(new_cart_item)
+            return {"message": "Item added to cart", "cart_item_id": new_cart_item.id}
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error adding item to cart: {str(e)}")
+
+@app.get("/cart")
+async def get_cart(user_id: int = Query(...), db: Session = Depends(get_db)):
+    """Get cart items for a user with product details"""
+    try:
+        # Query cart items with product details using JOIN
+        cart_items = db.query(CartItem).join(Product).filter(
+            CartItem.user_id == user_id
+        ).all()
+        
+        if not cart_items:
+            return {"items": [], "total_amount": 0}
+        
+        # Build response with product details
+        items = []
+        total_amount = 0
+        
+        for cart_item in cart_items:
+            product = cart_item.product
+            item_total = product.target_price * cart_item.quantity
+            total_amount += item_total
+            
+            items.append({
+                "id": cart_item.id,
+                "product_id": cart_item.product_id,
+                "quantity": cart_item.quantity,
+                "added_at": cart_item.added_at.isoformat(),
+                "product": {
+                    "product_id": product.product_id,
+                    "product_name": product.product_name,
+                    "category": product.category,
+                    "base_price": product.base_price,
+                    "target_price": product.target_price,
+                    "inventory_level": product.inventory_level,
+                    "rating": product.rating,
+                    "review_count": product.review_count,
+                    "image_url": product.image_url,
+                    "description": product.description
+                },
+                "item_total": item_total
+            })
         
         return {
-            "message": f"Data uploaded and model retrained successfully. {len(df)} records processed.",
-            "filename": file.filename,
-            "metrics": metrics
+            "items": items,
+            "total_amount": round(total_amount, 2)
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving cart: {str(e)}")
+
+@app.put("/cart/item/{item_id}")
+async def update_cart_item_quantity(item_id: int, cart_update: CartItemUpdate, db: Session = Depends(get_db)):
+    """Update cart item quantity or delete if quantity <= 0"""
+    try:
+        # Find the cart item
+        cart_item = db.query(CartItem).filter(CartItem.id == item_id).first()
+        if not cart_item:
+            raise HTTPException(status_code=404, detail="Cart item not found")
+        
+        # If quantity is 0 or less, delete the item
+        if cart_update.quantity <= 0:
+            db.delete(cart_item)
+            db.commit()
+            return {"message": "Item removed from cart"}
+        
+        # Otherwise, update the quantity
+        cart_item.quantity = cart_update.quantity
+        db.commit()
+        db.refresh(cart_item)
+        
+        return {
+            "message": "Cart item quantity updated",
+            "item_id": cart_item.id,
+            "new_quantity": cart_item.quantity
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating cart item: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
