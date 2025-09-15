@@ -8,6 +8,14 @@ export default {
   theme: {
     extend: {
       colors: {
+        'brand-dark': {
+          // Custom brand-dark palette matching UI aesthetic
+          bg: '#1A1B26',        // Deep dark slate-purple for main background
+          surface: '#2A2C37',   // Slightly lighter for cards, headers, and surfaces
+          'text-primary': '#E0E0E0',  // Off-white, easy-to-read primary text
+          accent: '#7A89F0',    // Muted lavender for links, buttons, and highlights
+          border: '#3A3C47',    // Subtle border color derived from surface
+        },
         night: {
           // Custom night mode palette - lighter for better visibility
           bg: '#3C4043',        // Main background (lighter)

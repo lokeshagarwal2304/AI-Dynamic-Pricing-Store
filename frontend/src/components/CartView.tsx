@@ -80,8 +80,8 @@ const CartView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-night-bg flex items-center justify-center transition-colors duration-300">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-night-accent"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-brand-dark-bg flex items-center justify-center transition-colors duration-300">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-brand-dark-accent"></div>
       </div>
     );
   }
@@ -92,9 +92,9 @@ const CartView: React.FC = () => {
   }, 0) || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-night-bg transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-brand-dark-bg transition-colors duration-300">
       {/* Header */}
-      <div className="bg-white dark:bg-night-header shadow-sm border-b border-gray-200 dark:border-night-border transition-colors duration-300">
+      <div className="bg-white dark:bg-brand-dark-surface shadow-sm border-b border-gray-200 dark:border-brand-dark-border transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

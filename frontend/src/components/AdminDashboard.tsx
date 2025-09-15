@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Upload, RefreshCw, AlertCircle, CheckCircle, Users, Package, ShoppingCart, 
   TrendingUp, DollarSign, Eye, Edit, Trash2, Plus, BarChart3, PieChart, 
-  Settings, Database, Activity, Calendar, Filter, Search
+  Settings, Database, Activity, Calendar, Filter, Search, FileSpreadsheet,
+  X, Info, Download
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { apiService } from '../services/apiService';
+import { apiService, UploadResponse } from '../services/apiService';
 
 interface DashboardStats {
   totalUsers: number;
@@ -34,7 +35,11 @@ interface Product {
 
 const AdminDashboard: React.FC = () => {
   const [isTraining, setIsTraining] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [uploadMessage, setUploadMessage] = useState<string>('');
+  const [uploadDetails, setUploadDetails] = useState<UploadResponse | null>(null);
+  const [uploadError, setUploadError] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,6 +49,13 @@ const AdminDashboard: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   
   const { user } = useAuth();
+
+  // Required CSV columns as specified in the backend
+  const requiredColumns = [
+    'product_id', 'product_name', 'category', 'base_price', 'inventory_level',
+    'competitor_avg_price', 'sales_last_30_days', 'rating', 'review_count',
+    'season', 'brand_tier', 'material_cost', 'target_price'
+  ];
 
   useEffect(() => {
     checkServerStatus();
@@ -124,31 +136,90 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      setSelectedFile(file);
+      setUploadStatus('idle');
+      setUploadMessage('');
+      setUploadDetails(null);
+      setUploadError(null);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      setUploadMessage('Please select a CSV file first.');
+      return;
+    }
+
+    // Validate file type
+    if (!selectedFile.name.endsWith('.csv')) {
+      setUploadMessage('Please select a valid CSV file.');
+      setUploadStatus('error');
+      return;
+    }
 
     setUploadStatus('uploading');
-    const formData = new FormData();
-    formData.append('file', file);
+    setUploadMessage('Uploading and validating CSV file...');
+    setUploadDetails(null);
+    setUploadError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/upload-data', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await apiService.uploadDataset(selectedFile);
       
-      if (response.ok) {
-        setUploadStatus('success');
-        setTimeout(() => setUploadStatus(null), 3000);
-      } else {
-        setUploadStatus('error');
-        setTimeout(() => setUploadStatus(null), 3000);
-      }
-    } catch (error) {
+      setUploadStatus('success');
+      setUploadDetails(response);
+      setUploadMessage(response.message);
+      
+      // Refresh products list after successful upload
+      fetchProducts();
+      
+      // Clear file selection after successful upload
+      setSelectedFile(null);
+      // Reset file input
+      const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      
+    } catch (error: any) {
       setUploadStatus('error');
-      setTimeout(() => setUploadStatus(null), 3000);
+      
+      try {
+        // Try to parse the error message as JSON for detailed feedback
+        const errorData = JSON.parse(error.message);
+        setUploadError(errorData);
+        
+        if (errorData.detail && typeof errorData.detail === 'object') {
+          // Handle validation errors with missing columns
+          if (errorData.detail.error === 'Missing required columns') {
+            setUploadMessage(
+              `Missing required columns: ${errorData.detail.missing_columns.join(', ')}`
+            );
+          } else if (errorData.detail.error === 'Data validation failed') {
+            setUploadMessage(
+              `Data validation failed: ${errorData.detail.validation_errors.join('; ')}`
+            );
+          } else {
+            setUploadMessage(errorData.detail.error || 'Upload failed');
+          }
+        } else {
+          setUploadMessage(errorData.detail || 'Upload failed. Please check your file format.');
+        }
+      } catch {
+        // If error message is not JSON, show generic message
+        setUploadMessage('Upload failed. Please check your file format and try again.');
+      }
     }
+  };
+
+  const resetUploadState = () => {
+    setUploadStatus('idle');
+    setUploadMessage('');
+    setUploadDetails(null);
+    setUploadError(null);
+    setSelectedFile(null);
+    const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const filteredProducts = products.filter(product => {
@@ -530,37 +601,180 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 
                 <div className="border-t pt-6">
-                  <h4 className="font-medium text-gray-900 mb-2">Upload Training Data</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Upload a CSV file with new product data to expand the training dataset.
-                  </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Upload Training Data</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Upload a CSV file with new product data to expand the training dataset and automatically retrain the model.
+                      </p>
+                    </div>
+                    {uploadStatus !== 'idle' && (
+                      <button
+                        onClick={resetUploadState}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Reset upload"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                   
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <label className="cursor-pointer">
-                      <span className="text-blue-600 hover:text-blue-500 font-medium">Choose CSV file</span>
-                      <input
-                        type="file"
-                        accept=".csv"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        disabled={serverStatus !== 'online'}
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      CSV format: product_name, category, base_price, inventory_level, etc.
-                    </p>
+                  {/* Required Columns Information */}
+                  <div className="bg-blue-50 dark:bg-night-header p-4 rounded-lg mb-4">
+                    <div className="flex items-start">
+                      <Info className="h-5 w-5 text-blue-600 dark:text-night-accent mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        <h5 className="font-medium text-blue-900 dark:text-night-text-primary mb-2">Required CSV Columns (13 total):</h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm text-blue-800 dark:text-night-text-secondary">
+                          {requiredColumns.map((column, index) => (
+                            <div key={column} className="flex items-center">
+                              <span className="w-2 h-2 bg-blue-400 dark:bg-night-accent rounded-full mr-2"></span>
+                              <code className="text-xs bg-white dark:bg-night-surface px-1 rounded">{column}</code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* File Selection */}
+                  <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                    uploadStatus === 'uploading' ? 'border-blue-300 bg-blue-50' :
+                    uploadStatus === 'success' ? 'border-green-300 bg-green-50' :
+                    uploadStatus === 'error' ? 'border-red-300 bg-red-50' :
+                    'border-gray-300 hover:border-gray-400'
+                  }`}>
+                    {uploadStatus === 'uploading' ? (
+                      <div className="flex flex-col items-center">
+                        <RefreshCw className="h-8 w-8 text-blue-600 mx-auto mb-2 animate-spin" />
+                        <span className="text-blue-700 font-medium">Processing...</span>
+                        <span className="text-blue-600 text-sm mt-1">{uploadMessage}</span>
+                      </div>
+                    ) : uploadStatus === 'success' ? (
+                      <div className="flex flex-col items-center">
+                        <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                        <span className="text-green-700 font-medium">Upload Successful!</span>
+                        <span className="text-green-600 text-sm mt-1">{uploadMessage}</span>
+                      </div>
+                    ) : uploadStatus === 'error' ? (
+                      <div className="flex flex-col items-center">
+                        <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                        <span className="text-red-700 font-medium">Upload Failed</span>
+                        <span className="text-red-600 text-sm mt-1">{uploadMessage}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <FileSpreadsheet className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <label className="cursor-pointer">
+                          <span className="text-blue-600 hover:text-blue-500 font-medium">
+                            {selectedFile ? selectedFile.name : 'Choose CSV file'}
+                          </span>
+                          <input
+                            id="csv-file-input"
+                            type="file"
+                            accept=".csv"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                            disabled={serverStatus !== 'online' || uploadStatus === 'uploading'}
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Must contain all {requiredColumns.length} required columns listed above
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {uploadStatus && (
-                    <div className={`mt-4 p-3 rounded-md ${
-                      uploadStatus === 'success' ? 'bg-green-50 text-green-800' :
-                      uploadStatus === 'error' ? 'bg-red-50 text-red-800' :
-                      'bg-blue-50 text-blue-800'
-                    }`}>
-                      {uploadStatus === 'success' && 'File uploaded successfully!'}
-                      {uploadStatus === 'error' && 'Upload failed. Please try again.'}
-                      {uploadStatus === 'uploading' && 'Uploading file...'}
+                  {/* Upload Button */}
+                  {selectedFile && uploadStatus !== 'uploading' && uploadStatus !== 'success' && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="text-sm text-gray-600">
+                        Selected: <span className="font-medium">{selectedFile.name}</span>
+                        <span className="ml-2 text-gray-400">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                      </div>
+                      <button
+                        onClick={handleFileUpload}
+                        disabled={serverStatus !== 'online'}
+                        className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload & Retrain
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Success Details */}
+                  {uploadStatus === 'success' && uploadDetails && (
+                    <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="font-medium text-green-900">Upload Summary</h5>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          uploadDetails.retraining_status === 'completed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          Model {uploadDetails.retraining_status}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-green-700 font-medium">New Records:</span>
+                          <span className="ml-2 text-green-800">{uploadDetails.upload_stats.new_records}</span>
+                        </div>
+                        <div>
+                          <span className="text-green-700 font-medium">Total Records:</span>
+                          <span className="ml-2 text-green-800">{uploadDetails.upload_stats.total_records}</span>
+                        </div>
+                        <div>
+                          <span className="text-green-700 font-medium">Existing Records:</span>
+                          <span className="ml-2 text-green-800">{uploadDetails.upload_stats.existing_records}</span>
+                        </div>
+                        <div>
+                          <span className="text-green-700 font-medium">Duplicates Removed:</span>
+                          <span className="ml-2 text-green-800">{uploadDetails.upload_stats.duplicates_removed}</span>
+                        </div>
+                      </div>
+                      {uploadDetails.model_metrics && (
+                        <div className="mt-3 pt-3 border-t border-green-200">
+                          <span className="text-green-700 font-medium text-sm">Model Performance:</span>
+                          <span className="ml-2 text-green-800 text-sm">
+                            R² Score: {(uploadDetails.model_metrics.r2_score * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Error Details */}
+                  {uploadStatus === 'error' && uploadError && (
+                    <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h5 className="font-medium text-red-900 mb-3">Upload Error Details</h5>
+                      {uploadError.detail && typeof uploadError.detail === 'object' && (
+                        <div className="space-y-2 text-sm">
+                          {uploadError.detail.missing_columns && (
+                            <div>
+                              <span className="text-red-700 font-medium">Missing Columns:</span>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {uploadError.detail.missing_columns.map((col: string) => (
+                                  <code key={col} className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">
+                                    {col}
+                                  </code>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {uploadError.detail.validation_errors && (
+                            <div>
+                              <span className="text-red-700 font-medium">Validation Errors:</span>
+                              <ul className="mt-1 list-disc list-inside text-red-800">
+                                {uploadError.detail.validation_errors.map((error: string, index: number) => (
+                                  <li key={index}>{error}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

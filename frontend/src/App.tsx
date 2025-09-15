@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -15,34 +15,42 @@ import ModelPerformance from './components/ModelPerformance';
 import AIInsights from './components/AIInsights';
 import Deals from './components/Deals';
 import Categories from './components/Categories';
+import Chatbot from './components/Chatbot';
+import ChatbotToggle from './components/ChatbotToggle';
 
 // Placeholder components for now
 const Wishlist = () => (
-  <div className="p-8 bg-white dark:bg-night-surface rounded-lg shadow-sm border border-gray-200 dark:border-night-surface text-gray-900 dark:text-night-text-primary transition-colors duration-300">
-    <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-night-text-primary">Wishlist</h2>
-    <p className="text-gray-600 dark:text-night-text-secondary">Your wishlist feature is coming soon!</p>
+  <div className="p-8 bg-white dark:bg-brand-dark-surface rounded-lg shadow-sm border border-gray-200 dark:border-brand-dark-border text-gray-900 dark:text-brand-dark-text-primary transition-colors duration-300">
+    <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-brand-dark-text-primary">Wishlist</h2>
+    <p className="text-gray-600 dark:text-gray-400">Your wishlist feature is coming soon!</p>
     <div className="mt-4">
-      <a href="#" className="text-blue-600 dark:text-night-accent hover:underline font-medium">Explore Products →</a>
+      <a href="#" className="text-blue-600 dark:text-brand-dark-accent hover:underline font-medium transition-colors">Explore Products →</a>
     </div>
   </div>
 );
 
 const Orders = () => (
-  <div className="p-8 bg-white dark:bg-night-surface rounded-lg shadow-sm border border-gray-200 dark:border-night-surface text-gray-900 dark:text-night-text-primary transition-colors duration-300">
-    <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-night-text-primary">Orders</h2>
-    <p className="text-gray-600 dark:text-night-text-secondary">Your order history feature is coming soon!</p>
+  <div className="p-8 bg-white dark:bg-brand-dark-surface rounded-lg shadow-sm border border-gray-200 dark:border-brand-dark-border text-gray-900 dark:text-brand-dark-text-primary transition-colors duration-300">
+    <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-brand-dark-text-primary">Orders</h2>
+    <p className="text-gray-600 dark:text-gray-400">Your order history feature is coming soon!</p>
     <div className="mt-4 space-x-4">
-      <a href="#" className="text-blue-600 dark:text-night-accent hover:underline font-medium">View Sample Order →</a>
-      <a href="#" className="text-blue-600 dark:text-night-accent hover:underline font-medium">Track Package →</a>
+      <a href="#" className="text-blue-600 dark:text-brand-dark-accent hover:underline font-medium transition-colors">View Sample Order →</a>
+      <a href="#" className="text-blue-600 dark:text-brand-dark-accent hover:underline font-medium transition-colors">Track Package →</a>
     </div>
   </div>
 );
 
 function App() {
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
+  const toggleChatbot = () => {
+    setIsChatbotOpen(!isChatbotOpen);
+  };
+
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-gray-100 dark:bg-night-bg text-gray-900 dark:text-night-text-primary transition-colors duration-300">
+        <div className="min-h-screen bg-gray-100 dark:bg-brand-dark-bg text-gray-900 dark:text-brand-dark-text-primary transition-colors duration-300">
           <Routes>
             {/* Authentication routes (no header) */}
             <Route
@@ -106,6 +114,16 @@ function App() {
               }
             />
           </Routes>
+          
+          {/* Floating Chatbot - Available on all authenticated pages */}
+          <ChatbotToggle 
+            isOpen={isChatbotOpen} 
+            onClick={toggleChatbot}
+          />
+          <Chatbot 
+            isOpen={isChatbotOpen} 
+            onToggle={toggleChatbot}
+          />
         </div>
       </Router>
     </AuthProvider>

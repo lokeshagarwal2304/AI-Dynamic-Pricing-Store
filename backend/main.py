@@ -28,7 +28,14 @@ app = FastAPI(
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "http://localhost:5174", 
+        "http://127.0.0.1:5174",
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,6 +123,9 @@ class PredictionResponse(BaseModel):
     recommendation: str
 
 class ModelMetrics(BaseModel):
+    class Config:
+        protected_namespaces = ()
+    
     mse: float
     rmse: float
     r2_score: float
@@ -568,17 +578,166 @@ async def retrain_model(current_user: dict = Depends(get_admin_user)):
 
 @app.post("/upload-data")
 async def upload_data(file: UploadFile = File(...), current_user: dict = Depends(get_admin_user)):
-    """Upload new training data (admin only)"""
+    """Upload new training data with strict validation and automatic model retraining (admin only)"""
+    
+    # Define required columns exactly as specified
+    required_columns = [
+        'product_id', 'product_name', 'category', 'base_price', 'inventory_level',
+        'competitor_avg_price', 'sales_last_30_days', 'rating', 'review_count',
+        'season', 'brand_tier', 'material_cost', 'target_price'
+    ]
+    
     try:
+        # Validate file type
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file type. Only .csv files are allowed."
+            )
+        
+        # Read uploaded CSV file
         contents = await file.read()
-        df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+        uploaded_df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
         
-        # Save the uploaded file
-        df.to_csv('dataset.csv', index=False)
+        # Strict column validation
+        uploaded_columns = set(uploaded_df.columns.tolist())
+        required_columns_set = set(required_columns)
+        missing_columns = required_columns_set - uploaded_columns
         
-        return {"message": f"Successfully uploaded {len(df)} records"}
+        if missing_columns:
+            missing_list = sorted(list(missing_columns))
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Missing required columns",
+                    "missing_columns": missing_list,
+                    "required_columns": required_columns,
+                    "uploaded_columns": sorted(list(uploaded_columns))
+                }
+            )
+        
+        # Additional data validation
+        validation_errors = []
+        
+        # Check for empty DataFrame
+        if uploaded_df.empty:
+            validation_errors.append("CSV file is empty")
+        
+        # Validate data types and ranges
+        try:
+            # Numeric columns validation
+            numeric_columns = ['base_price', 'inventory_level', 'competitor_avg_price', 
+                             'sales_last_30_days', 'rating', 'review_count', 'material_cost', 'target_price']
+            
+            for col in numeric_columns:
+                if col in uploaded_df.columns:
+                    # Convert to numeric, invalid parsing will raise error
+                    pd.to_numeric(uploaded_df[col], errors='coerce')
+                    
+                    # Check for negative values where they shouldn't exist
+                    if col in ['base_price', 'inventory_level', 'competitor_avg_price', 
+                              'review_count', 'material_cost', 'target_price']:
+                        if (uploaded_df[col] < 0).any():
+                            validation_errors.append(f"Column '{col}' contains negative values")
+                    
+                    # Rating should be between 0 and 5
+                    if col == 'rating':
+                        if (uploaded_df[col] > 5).any() or (uploaded_df[col] < 0).any():
+                            validation_errors.append("Column 'rating' should be between 0 and 5")
+            
+            # Check for null values in required columns
+            null_columns = []
+            for col in required_columns:
+                if uploaded_df[col].isnull().any():
+                    null_columns.append(col)
+            
+            if null_columns:
+                validation_errors.append(f"Null values found in columns: {', '.join(null_columns)}")
+                
+        except Exception as e:
+            validation_errors.append(f"Data type validation error: {str(e)}")
+        
+        # If there are validation errors, return them
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Data validation failed",
+                    "validation_errors": validation_errors
+                }
+            )
+        
+        # Load existing dataset if it exists
+        existing_data = None
+        if os.path.exists('dataset.csv'):
+            try:
+                existing_data = pd.read_csv('dataset.csv')
+            except Exception as e:
+                print(f"Warning: Could not load existing dataset: {str(e)}")
+        
+        # Append new data to existing dataset
+        if existing_data is not None:
+            # Ensure columns match
+            if set(existing_data.columns) != set(uploaded_df.columns):
+                # Reorder uploaded columns to match existing data
+                uploaded_df = uploaded_df[existing_data.columns]
+            
+            combined_data = pd.concat([existing_data, uploaded_df], ignore_index=True)
+        else:
+            combined_data = uploaded_df
+        
+        # Remove duplicates if any (based on product_id if it exists)
+        if 'product_id' in combined_data.columns:
+            initial_count = len(combined_data)
+            combined_data = combined_data.drop_duplicates(subset=['product_id'], keep='last')
+            duplicates_removed = initial_count - len(combined_data)
+        else:
+            duplicates_removed = 0
+        
+        # Save the combined dataset
+        combined_data.to_csv('dataset.csv', index=False)
+        
+        # Automatically trigger model retraining
+        try:
+            print("🔄 Starting automatic model retraining...")
+            retrain_metrics = train_model()
+            print("✅ Model retraining completed successfully!")
+            
+            return {
+                "message": "Data uploaded and model retrained successfully",
+                "upload_stats": {
+                    "new_records": len(uploaded_df),
+                    "total_records": len(combined_data),
+                    "duplicates_removed": duplicates_removed,
+                    "existing_records": len(existing_data) if existing_data is not None else 0
+                },
+                "model_metrics": retrain_metrics,
+                "retraining_status": "completed"
+            }
+            
+        except Exception as retrain_error:
+            # If retraining fails, still return success for data upload
+            print(f"⚠️ Data uploaded successfully but model retraining failed: {str(retrain_error)}")
+            return {
+                "message": "Data uploaded successfully, but model retraining failed",
+                "upload_stats": {
+                    "new_records": len(uploaded_df),
+                    "total_records": len(combined_data),
+                    "duplicates_removed": duplicates_removed,
+                    "existing_records": len(existing_data) if existing_data is not None else 0
+                },
+                "retraining_status": "failed",
+                "retraining_error": str(retrain_error)
+            }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors)
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Upload error: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Unexpected error during upload: {str(e)}"
+        )
 
 # Cart endpoints
 @app.post("/cart/add")

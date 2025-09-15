@@ -1,0 +1,11 @@
+product_id,product_name,category,base_price,inventory_level,competitor_avg_price,sales_last_30_days,rating,review_count,season,brand_tier,material_cost,target_price
+101,Wireless Bluetooth Headphones,Electronics,79.99,45,85.50,120,4.3,850,All,Premium,25.00,82.99
+102,Smart Fitness Tracker,Sports & Fitness,149.99,78,155.00,95,4.5,1200,All,Premium,45.00,152.99
+103,Organic Cotton T-Shirt,Clothing,24.99,120,22.50,200,4.1,450,Spring,Standard,8.50,26.99
+104,Stainless Steel Water Bottle,Home & Garden,19.99,200,18.75,150,4.6,780,All,Standard,6.00,21.99
+105,Gaming Mechanical Keyboard,Electronics,89.99,35,95.00,80,4.4,920,All,Premium,30.00,92.99
+106,Yoga Exercise Mat,Sports & Fitness,29.99,90,32.50,110,4.2,650,All,Standard,12.00,31.99
+107,Leather Wallet,Fashion,49.99,60,52.00,70,4.7,380,All,Premium,15.00,53.99
+108,Coffee Maker,Home & Garden,129.99,25,135.00,45,4.0,560,All,Standard,55.00,132.99
+109,Wireless Phone Charger,Electronics,34.99,85,38.00,160,4.3,720,All,Standard,12.50,36.99
+110,Running Sneakers,Sports & Fitness,119.99,40,125.00,90,4.5,1100,All,Premium,45.00,122.99

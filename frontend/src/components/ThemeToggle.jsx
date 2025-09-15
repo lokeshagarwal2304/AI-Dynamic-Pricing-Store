@@ -37,7 +37,7 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="relative p-3 rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-night-surface/80 dark:hover:bg-night-header/80 backdrop-blur-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-night-accent/50 shadow-lg hover:shadow-xl group"
+      className="relative p-3 rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-brand-dark-bg/80 dark:hover:bg-brand-dark-surface/80 backdrop-blur-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-brand-dark-accent/50 shadow-lg hover:shadow-xl group"
       aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
     >
       <div className="relative w-6 h-6">
@@ -56,7 +56,7 @@ const ThemeToggle = () => {
         
         {/* Moon Icon */}
         <svg
-          className={`absolute inset-0 w-6 h-6 text-blue-400 transition-all duration-500 transform ${
+          className={`absolute inset-0 w-6 h-6 text-brand-dark-accent transition-all duration-500 transform ${
             theme === 'dark'
               ? 'opacity-100 rotate-0 scale-100'
               : 'opacity-0 -rotate-180 scale-50'
@@ -69,9 +69,9 @@ const ThemeToggle = () => {
       </div>
       
       {/* Tooltip */}
-      <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-night-text-primary text-white dark:text-night-bg px-3 py-1 rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+      <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-brand-dark-text-primary text-white dark:text-brand-dark-bg px-3 py-1 rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
         {theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-night-text-primary rotate-45"></div>
+        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-brand-dark-text-primary rotate-45"></div>
       </div>
     </button>
   );

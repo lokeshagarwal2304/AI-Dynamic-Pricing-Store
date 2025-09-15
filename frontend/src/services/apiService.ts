@@ -67,6 +67,19 @@ export interface ModelMetrics {
   feature_importance: Record<string, number>;
 }
 
+export interface UploadResponse {
+  message: string;
+  upload_stats: {
+    new_records: number;
+    total_records: number;
+    duplicates_removed: number;
+    existing_records: number;
+  };
+  model_metrics?: ModelMetrics;
+  retraining_status: string;
+  retraining_error?: string;
+}
+
 export interface Product {
   product_id: number;
   product_name: string;
@@ -333,6 +346,33 @@ class ApiService {
     return this.fetchWithErrorHandling(`${API_BASE_URL}/train`, {
       method: 'POST',
     });
+  }
+
+  async uploadDataset(file: File): Promise<UploadResponse> {
+    const token = Cookies.get('auth_token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/upload-data`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        Cookies.remove('auth_token');
+        Cookies.remove('auth_user');
+        window.location.href = '/login';
+      }
+      
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    return await response.json();
   }
 
   // ==========================================

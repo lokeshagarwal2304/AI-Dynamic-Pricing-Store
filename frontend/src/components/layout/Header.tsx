@@ -46,7 +46,7 @@ const Header: React.FC = () => {
 
   return (
 
-    <header className="bg-white/95 dark:bg-night-header/95 backdrop-blur-md shadow-lg border-b border-gray-100 dark:border-night-border sticky top-0 z-50 transition-all duration-300">
+    <header className="bg-white/95 dark:bg-brand-dark-surface/95 backdrop-blur-md shadow-lg border-b border-gray-100 dark:border-brand-dark-border sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
@@ -56,8 +56,8 @@ const Header: React.FC = () => {
                 <SparklesIcon className="h-7 w-7 text-white animate-pulse" />
               </div>
               <div className="ml-3 hidden sm:block">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-night-text-primary group-hover:text-blue-600 dark:group-hover:text-night-accent transition-colors">AI Store</h1>
-                <p className="text-xs text-gray-500 dark:text-night-text-secondary -mt-1 group-hover:text-blue-500 dark:group-hover:text-night-accent transition-colors">Dynamic Pricing</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-brand-dark-text-primary group-hover:text-blue-600 dark:group-hover:text-brand-dark-accent transition-colors">AI Store</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1 group-hover:text-blue-500 dark:group-hover:text-brand-dark-accent transition-colors">Dynamic Pricing</p>
               </div>
             </Link>
           </div>
@@ -70,7 +70,7 @@ const Header: React.FC = () => {
               </div>
               <input
                 type="text"
-                className="block w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-night-border rounded-xl leading-5 bg-gray-50 dark:bg-night-surface dark:text-night-text-primary placeholder-gray-500 dark:placeholder-night-text-muted focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-night-accent focus:border-blue-500 dark:focus:border-night-accent focus:bg-white dark:focus:bg-night-surface transition-all duration-200 shadow-sm focus:shadow-md"
+                className="block w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-brand-dark-border rounded-xl leading-5 bg-gray-50 dark:bg-brand-dark-bg dark:text-brand-dark-text-primary placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-brand-dark-accent focus:border-blue-500 dark:focus:border-brand-dark-accent focus:bg-white dark:focus:bg-brand-dark-bg transition-all duration-200 shadow-sm focus:shadow-md"
                 placeholder="Search products, categories, brands..."
               />
             </div>
@@ -84,8 +84,8 @@ const Header: React.FC = () => {
                 to={item.href}
                 className={`${
                   item.current
-                    ? 'bg-blue-50 dark:bg-night-surface text-blue-600 dark:text-night-accent border-blue-200 dark:border-night-border'
-                    : 'text-gray-600 dark:text-night-text-secondary hover:bg-gray-50 dark:hover:bg-night-surface hover:text-gray-900 dark:hover:text-night-text-primary border-transparent'
+                    ? 'bg-blue-50 dark:bg-brand-dark-bg text-blue-600 dark:text-brand-dark-accent border-blue-200 dark:border-brand-dark-border'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-brand-dark-bg hover:text-gray-900 dark:hover:text-brand-dark-text-primary border-transparent'
                 } inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 group`}
               >
                 <span className="mr-2 group-hover:scale-110 transition-transform">{item.icon}</span>
@@ -101,7 +101,7 @@ const Header: React.FC = () => {
                 {/* Wishlist */}
                 <Link
                   to="/wishlist"
-                  className="p-2 text-gray-400 dark:text-night-text-secondary hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 relative group"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 relative group"
                 >
                   <HeartIcon className="h-6 w-6 group-hover:scale-110 transition-transform" />
                   <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
@@ -110,7 +110,7 @@ const Header: React.FC = () => {
                 {/* Shopping Cart */}
                 <Link
                   to="/cart"
-                  className="p-2 text-gray-400 dark:text-night-text-secondary hover:text-blue-600 dark:hover:text-night-accent hover:bg-blue-50 dark:hover:bg-night-accent/20 rounded-lg transition-all duration-200 relative group"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-brand-dark-accent hover:bg-blue-50 dark:hover:bg-brand-dark-accent/20 rounded-lg transition-all duration-200 relative group"
                 >
                   <ShoppingCartIcon className="h-6 w-6 group-hover:scale-110 transition-transform" />
                   <span className="absolute -top-1 -right-1 h-4 w-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">2</span>
@@ -123,7 +123,7 @@ const Header: React.FC = () => {
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center text-sm rounded-xl p-2 hover:bg-gray-50 dark:hover:bg-night-surface focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-night-accent transition-all duration-200 group"
+                    className="flex items-center text-sm rounded-xl p-2 hover:bg-gray-50 dark:hover:bg-brand-dark-bg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-brand-dark-accent transition-all duration-200 group"
                   >
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ring-2 ring-white shadow-lg group-hover:scale-105 transition-transform">
                       {user.profile_picture ? (
@@ -136,7 +136,7 @@ const Header: React.FC = () => {
                         <UserIcon className="h-5 w-5 text-white" />
                       )}
                     </div>
-                    <span className="hidden md:ml-2 md:block text-gray-700 dark:text-night-text-primary font-medium group-hover:text-gray-900 dark:group-hover:text-night-text-primary transition-colors">
+                    <span className="hidden md:ml-2 md:block text-gray-700 dark:text-brand-dark-text-primary font-medium group-hover:text-gray-900 dark:group-hover:text-brand-dark-text-primary transition-colors">
                       {user.full_name}
                     </span>
                     <ChevronDownIcon className={`hidden md:ml-1 md:block h-4 w-4 text-gray-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
@@ -144,7 +144,7 @@ const Header: React.FC = () => {
 
                   {/* User Dropdown */}
                   {isUserMenuOpen && (
-                    <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-xl shadow-xl bg-white dark:bg-night-surface ring-1 ring-black ring-opacity-5 border border-gray-100 dark:border-night-border backdrop-blur-sm transition-colors duration-300">
+                    <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-xl shadow-xl bg-white dark:bg-brand-dark-surface ring-1 ring-black ring-opacity-5 border border-gray-100 dark:border-brand-dark-border backdrop-blur-sm transition-colors duration-300">
                       <div className="py-2">
                         <div className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-xl">
                           <p className="font-semibold text-gray-900">{user.full_name}</p>
