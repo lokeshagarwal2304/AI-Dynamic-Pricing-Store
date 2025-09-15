@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -17,7 +17,7 @@ import jwt
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from database import get_db, CartItem, Product
+from database import get_db, CartItem, Product, User, create_tables
 
 app = FastAPI(
     title="AI-Powered E-commerce Platform", 
@@ -55,23 +55,21 @@ label_encoders = {}
 feature_columns = []
 model_metrics = {}
 
-# In-memory user storage (in a real app, use a proper database)
-fake_users_db = {
-    "admin": {
-        "id": 1,
-        "username": "admin",
-        "email": "admin@example.com",
-        "full_name": "Administrator",
-        "password": "admin123",  # Simple password for demo
-        "role": "admin",
-        "is_active": True
-    }
-}
+# In-memory user storage (admin only for backward compatibility)
+fake_users_db = {}
 
 # Pydantic models
 class UserLogin(BaseModel):
     username: str
     password: str
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    username: str
+    full_name: str
+    password: str
+    phone: str = None
+    address: str = None
 
 class UserResponse(BaseModel):
     id: int
@@ -80,6 +78,9 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    phone: str = None
+    address: str = None
+    created_at: str = None
 
 class Token(BaseModel):
     access_token: str
@@ -142,19 +143,67 @@ class CartItemUpdate(BaseModel):
     quantity: int
 
 # Authentication functions
-def verify_password(plain_password, stored_password):
-    return plain_password == stored_password
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    return password  # Simple for demo
+    return pwd_context.hash(password)
 
-def authenticate_user(username: str, password: str):
-    user = fake_users_db.get(username)
-    if not user:
-        return False
-    if not verify_password(password, user["password"]):
-        return False
-    return user
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
+
+def get_user_by_username(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
+
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(User).filter(User.id == user_id).first()
+
+def create_user(db: Session, user_data: UserRegister):
+    # Check if email already exists
+    if get_user_by_email(db, user_data.email):
+        return None
+    # Check if username already exists
+    if get_user_by_username(db, user_data.username):
+        return None
+    
+    hashed_password = get_password_hash(user_data.password)
+    db_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        full_name=user_data.full_name,
+        hashed_password=hashed_password,
+        phone=user_data.phone,
+        address=user_data.address,
+        role="user",
+        is_active=True
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def authenticate_user(username: str, password: str, db: Session):
+    # Try to authenticate with database users first
+    user = get_user_by_username(db, username)
+    if user and verify_password(password, user.hashed_password):
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active,
+            "phone": user.phone,
+            "address": user.address,
+            "created_at": user.created_at.isoformat() if user.created_at else None
+        }
+    
+    # Fallback to fake users for backward compatibility (admin)
+    fake_user = fake_users_db.get(username)
+    if fake_user and verify_password(password, fake_user["password"]):
+        return fake_user
+    
+    return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -166,7 +215,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -180,10 +229,27 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
-    user = fake_users_db.get(username)
-    if user is None:
+    
+    # Try database users first
+    db_user = get_user_by_username(db, username)
+    if db_user:
+        return {
+            "id": db_user.id,
+            "username": db_user.username,
+            "email": db_user.email,
+            "full_name": db_user.full_name,
+            "role": db_user.role,
+            "is_active": db_user.is_active,
+            "phone": db_user.phone,
+            "address": db_user.address,
+            "created_at": db_user.created_at.isoformat() if db_user.created_at else None
+        }
+    
+    # Fallback to fake users
+    fake_user = fake_users_db.get(username)
+    if fake_user is None:
         raise credentials_exception
-    return user
+    return fake_user
 
 def get_admin_user(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
@@ -192,6 +258,37 @@ def get_admin_user(current_user: dict = Depends(get_current_user)):
             detail="Not enough permissions"
         )
     return current_user
+
+def require_admin_role(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Dependency to require admin role from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    admin_exception = HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        role: str = payload.get("role")
+        
+        if username is None:
+            raise credentials_exception
+        
+        if role != "admin":
+            raise admin_exception
+            
+        return {"username": username, "role": role}
+        
+    except jwt.PyJWTError:
+        raise credentials_exception
 
 # ML model functions
 def load_and_preprocess_data():
@@ -300,10 +397,17 @@ def load_model():
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the model on startup"""
+    """Initialize the model and database on startup"""
     print("\n" + "="*60)
     print("🚀 AI Dynamic Pricing API Starting...")
     print("="*60)
+    
+    # Create database tables
+    try:
+        create_tables()
+        print("✅ Database tables initialized successfully!")
+    except Exception as e:
+        print(f"⚠️  Database initialization warning: {str(e)}")
     
     try:
         if not load_model():
@@ -383,9 +487,9 @@ async def root():
 
 # Authentication endpoints
 @app.post("/auth/login", response_model=Token)
-async def login(user_credentials: UserLogin):
+async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     """Login user and return access token"""
-    user = authenticate_user(user_credentials.username, user_credentials.password)
+    user = authenticate_user(user_credentials.username, user_credentials.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -395,16 +499,76 @@ async def login(user_credentials: UserLogin):
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"]}, expires_delta=access_token_expires
+        data={"sub": user["username"], "role": user["role"]}, expires_delta=access_token_expires
     )
     
-    user_response = UserResponse(**{k: v for k, v in user.items() if k != "password"})
+    user_response = UserResponse(**{k: v for k, v in user.items() if k != "password" and k != "hashed_password"})
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": user_response
     }
+
+@app.post("/register", response_model=Token)
+async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    """Register a new user"""
+    # Check if email already exists
+    existing_user_email = get_user_by_email(db, user_data.email)
+    if existing_user_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Check if username already exists
+    existing_user_username = get_user_by_username(db, user_data.username)
+    if existing_user_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+    
+    # Create new user
+    try:
+        new_user = create_user(db, user_data)
+        if not new_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to create user"
+            )
+        
+        # Create access token for the new user
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": new_user.username, "role": new_user.role}, expires_delta=access_token_expires
+        )
+        
+        # Prepare user response
+        user_response = UserResponse(
+            id=new_user.id,
+            email=new_user.email,
+            username=new_user.username,
+            full_name=new_user.full_name,
+            role=new_user.role,
+            is_active=new_user.is_active,
+            phone=new_user.phone,
+            address=new_user.address,
+            created_at=new_user.created_at.isoformat() if new_user.created_at else None
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_response
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
 
 @app.get("/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
@@ -568,7 +732,7 @@ async def get_model_metrics():
     return ModelMetrics(**model_metrics)
 
 @app.post("/train")
-async def retrain_model(current_user: dict = Depends(get_admin_user)):
+async def retrain_model(admin_user: dict = Depends(require_admin_role)):
     """Retrain the model (admin only)"""
     try:
         metrics = train_model()
@@ -577,7 +741,7 @@ async def retrain_model(current_user: dict = Depends(get_admin_user)):
         raise HTTPException(status_code=500, detail=f"Training error: {str(e)}")
 
 @app.post("/upload-data")
-async def upload_data(file: UploadFile = File(...), current_user: dict = Depends(get_admin_user)):
+async def upload_data(file: UploadFile = File(...), admin_user: dict = Depends(require_admin_role)):
     """Upload new training data with strict validation and automatic model retraining (admin only)"""
     
     # Define required columns exactly as specified

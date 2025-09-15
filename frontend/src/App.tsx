@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
 import Header from './components/layout/Header';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
@@ -80,8 +81,16 @@ function App() {
                     <Routes>
                       <Route path="/" element={<ProductListing />} />
                       <Route path="/products" element={<ProductListing />} />
-                      <Route path="/dashboard" element={<AdminDashboard />} />
-                      <Route path="/performance" element={<ModelPerformance />} />
+                      <Route path="/dashboard" element={
+                        <AdminProtectedRoute>
+                          <AdminDashboard />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/performance" element={
+                        <AdminProtectedRoute>
+                          <ModelPerformance />
+                        </AdminProtectedRoute>
+                      } />
                       <Route path="/cart" element={<CartView />} />
                       <Route path="/categories" element={<Categories />} />
                       <Route path="/deals" element={<Deals />} />
@@ -95,17 +104,17 @@ function App() {
                       <Route
                         path="/admin/dashboard"
                         element={
-                          <ProtectedRoute requireAdmin={true}>
+                          <AdminProtectedRoute>
                             <AdminDashboard />
-                          </ProtectedRoute>
+                          </AdminProtectedRoute>
                         }
                       />
                       <Route
                         path="/admin/performance"
                         element={
-                          <ProtectedRoute requireAdmin={true}>
+                          <AdminProtectedRoute>
                             <ModelPerformance />
-                          </ProtectedRoute>
+                          </AdminProtectedRoute>
                         }
                       />
                     </Routes>

@@ -40,10 +40,15 @@ const Register: React.FC = () => {
       const { confirmPassword, ...registerData } = data;
       const response = await apiService.register(registerData);
       login(response.access_token, response.user);
-      navigate('/products');
+      navigate('/');
     } catch (err: any) {
       console.error('Registration error:', err);
-      if (err.message.includes('400')) {
+      // Display specific error message from backend
+      if (err.message.includes('Email already registered')) {
+        setError('Email already registered');
+      } else if (err.message.includes('Username already exists')) {
+        setError('Username already exists');
+      } else if (err.message.includes('400')) {
         setError('Username or email already exists');
       } else {
         setError('Registration failed. Please try again.');

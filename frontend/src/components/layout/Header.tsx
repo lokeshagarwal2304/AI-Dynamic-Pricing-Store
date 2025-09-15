@@ -33,8 +33,10 @@ const Header: React.FC = () => {
 
   const navigation = [
     { name: 'Products', href: '/', current: isActive('/') || isActive('/products'), icon: '📦' },
-    { name: 'Dashboard', href: '/dashboard', current: isActive('/dashboard'), icon: '📊' },
-    { name: 'Performance', href: '/performance', current: isActive('/performance'), icon: '📈' },
+    ...(isAdmin ? [
+      { name: 'Dashboard', href: '/dashboard', current: isActive('/dashboard'), icon: '📊' },
+      { name: 'Performance', href: '/performance', current: isActive('/performance'), icon: '📈' },
+    ] : []),
   ];
 
   const userNavigation = user ? [

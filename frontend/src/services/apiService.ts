@@ -181,7 +181,14 @@ class ApiService {
           Cookies.remove('auth_user');
           window.location.href = '/login';
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        
+        // Try to get detailed error message from response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        } catch (jsonError) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       }
 
       return await response.json();
@@ -203,7 +210,7 @@ class ApiService {
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    return this.fetchWithErrorHandling(`${API_BASE_URL}/auth/register`, {
+    return this.fetchWithErrorHandling(`${API_BASE_URL}/register`, {
       method: 'POST',
       body: JSON.stringify(userData),
     });
