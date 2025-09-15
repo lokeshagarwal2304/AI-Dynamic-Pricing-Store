@@ -17,7 +17,7 @@ import jwt
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from database import get_db, CartItem, Product, User, create_tables
+from database import get_db, CartItem, Product, User, Order, OrderItem, create_tables
 
 app = FastAPI(
     title="AI-Powered E-commerce Platform", 
@@ -141,6 +141,20 @@ class CartItemAdd(BaseModel):
 
 class CartItemUpdate(BaseModel):
     quantity: int
+
+class OrderCreate(BaseModel):
+    shipping_address: dict
+    payment_method: str
+
+class OrderResponse(BaseModel):
+    id: int
+    user_id: int
+    total_amount: float
+    status: str
+    shipping_address: dict
+    payment_method: str
+    created_at: str
+    order_items: List[dict]
 
 # Authentication functions
 def verify_password(plain_password, hashed_password):
@@ -942,12 +956,12 @@ async def add_to_cart(cart_item: CartItemAdd, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error adding item to cart: {str(e)}")
 
 @app.get("/cart")
-async def get_cart(user_id: int = Query(...), db: Session = Depends(get_db)):
-    """Get cart items for a user with product details"""
+async def get_cart(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get cart items for the current authenticated user with product details"""
     try:
         # Query cart items with product details using JOIN
         cart_items = db.query(CartItem).join(Product).filter(
-            CartItem.user_id == user_id
+            CartItem.user_id == current_user["id"]
         ).all()
         
         if not cart_items:
@@ -1019,6 +1033,187 @@ async def update_cart_item_quantity(item_id: int, cart_update: CartItemUpdate, d
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error updating cart item: {str(e)}")
+
+@app.delete("/cart/clear")
+async def clear_cart(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Clear all items from user's cart"""
+    try:
+        # Delete all cart items for the current user
+        cart_items = db.query(CartItem).filter(CartItem.user_id == current_user["id"]).all()
+        
+        for item in cart_items:
+            db.delete(item)
+        
+        db.commit()
+        return {"message": "Cart cleared successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error clearing cart: {str(e)}")
+
+@app.delete("/cart/{item_id}")
+async def remove_cart_item(item_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Remove specific item from cart"""
+    try:
+        # Find the cart item
+        cart_item = db.query(CartItem).filter(
+            CartItem.id == item_id,
+            CartItem.user_id == current_user["id"]
+        ).first()
+        
+        if not cart_item:
+            raise HTTPException(status_code=404, detail="Cart item not found")
+        
+        db.delete(cart_item)
+        db.commit()
+        
+        return {"message": "Item removed from cart"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error removing cart item: {str(e)}")
+
+# Order endpoints
+@app.post("/orders/create", response_model=OrderResponse)
+async def create_order(order_data: OrderCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Create a new order from user's cart items"""
+    try:
+        # Start a transaction
+        db.begin()
+        
+        # 1. Fetch all items for the user from the cart_items table
+        cart_items = db.query(CartItem).join(Product).filter(
+            CartItem.user_id == current_user["id"]
+        ).all()
+        
+        if not cart_items:
+            raise HTTPException(status_code=400, detail="Cart is empty")
+        
+        # 2. Calculate the total order amount
+        total_amount = 0
+        order_items_data = []
+        
+        for cart_item in cart_items:
+            product = cart_item.product
+            # Use predicted price if available, fallback to target price
+            price_at_time = product.target_price  # In real scenario, this would include AI prediction
+            item_total = price_at_time * cart_item.quantity
+            total_amount += item_total
+            
+            order_items_data.append({
+                "product_id": cart_item.product_id,
+                "quantity": cart_item.quantity,
+                "price_at_time": price_at_time,
+                "product": product
+            })
+        
+        # 3. Create a new record in the orders table
+        import json
+        new_order = Order(
+            user_id=current_user["id"],
+            total_amount=total_amount,
+            status="pending",
+            shipping_address=json.dumps(order_data.shipping_address),
+            payment_method=order_data.payment_method
+        )
+        
+        db.add(new_order)
+        db.flush()  # This assigns the ID but doesn't commit yet
+        
+        # 4. For each item from the cart, create a corresponding record in the order_items table
+        db_order_items = []
+        for item_data in order_items_data:
+            order_item = OrderItem(
+                order_id=new_order.id,
+                product_id=item_data["product_id"],
+                quantity=item_data["quantity"],
+                price_at_time=item_data["price_at_time"]
+            )
+            db.add(order_item)
+            db_order_items.append(order_item)
+        
+        # 5. Delete all items from the user's cart_items table to clear their cart
+        for cart_item in cart_items:
+            db.delete(cart_item)
+        
+        # Commit the transaction
+        db.commit()
+        
+        # Refresh to get the complete data
+        db.refresh(new_order)
+        for item in db_order_items:
+            db.refresh(item)
+        
+        # Prepare response with order items
+        order_items_response = []
+        for i, item in enumerate(db_order_items):
+            product = order_items_data[i]["product"]
+            order_items_response.append({
+                "id": item.id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "price_at_time": item.price_at_time,
+                "product": {
+                    "product_id": product.product_id,
+                    "product_name": product.product_name,
+                    "category": product.category
+                }
+            })
+        
+        return OrderResponse(
+            id=new_order.id,
+            user_id=new_order.user_id,
+            total_amount=new_order.total_amount,
+            status=new_order.status,
+            shipping_address=order_data.shipping_address,
+            payment_method=new_order.payment_method,
+            created_at=new_order.created_at.isoformat(),
+            order_items=order_items_response
+        )
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating order: {str(e)}")
+
+@app.get("/orders")
+async def get_user_orders(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get all orders for the current user"""
+    try:
+        orders = db.query(Order).filter(Order.user_id == current_user["id"]).all()
+        
+        orders_response = []
+        for order in orders:
+            # Get order items
+            order_items = db.query(OrderItem).join(Product).filter(OrderItem.order_id == order.id).all()
+            
+            items_data = []
+            for item in order_items:
+                items_data.append({
+                    "product_name": item.product.product_name,
+                    "quantity": item.quantity,
+                    "price": item.price_at_time
+                })
+            
+            import json
+            shipping_address = json.loads(order.shipping_address) if order.shipping_address else {}
+            
+            orders_response.append({
+                "order_id": order.id,
+                "order_number": f"ORD-{order.id:06d}",
+                "total": order.total_amount,
+                "status": order.status,
+                "created_at": order.created_at.isoformat(),
+                "items": items_data,
+                "shipping_address": shipping_address
+            })
+        
+        return {"orders": orders_response}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving orders: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

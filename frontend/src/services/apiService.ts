@@ -299,14 +299,18 @@ class ApiService {
   // ORDER METHODS
   // ==========================================
   
-  async createOrder(orderData: { shipping_address: string; payment_method: string }): Promise<Order> {
-    return this.fetchWithErrorHandling(`${API_BASE_URL}/orders`, {
+  async createOrder(orderData: { shipping_address: any; payment_method: string }): Promise<Order> {
+    return this.fetchWithErrorHandling(`${API_BASE_URL}/orders/create`, {
       method: 'POST',
       body: JSON.stringify(orderData),
     });
   }
 
   async getOrders(): Promise<Order[]> {
+    return this.fetchWithErrorHandling(`${API_BASE_URL}/orders`);
+  }
+
+  async getUserOrders(): Promise<{ orders: Order[] }> {
     return this.fetchWithErrorHandling(`${API_BASE_URL}/orders`);
   }
 

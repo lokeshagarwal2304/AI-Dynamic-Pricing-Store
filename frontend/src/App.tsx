@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
 import Header from './components/layout/Header';
@@ -18,6 +19,7 @@ import Deals from './components/Deals';
 import Categories from './components/Categories';
 import Chatbot from './components/Chatbot';
 import ChatbotToggle from './components/ChatbotToggle';
+import OrderConfirmation from './components/OrderConfirmation';
 
 // Placeholder components for now
 const Wishlist = () => (
@@ -50,8 +52,9 @@ function App() {
 
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-100 dark:bg-brand-dark-bg text-gray-900 dark:text-brand-dark-text-primary transition-colors duration-300">
+      <CartProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-100 dark:bg-brand-dark-bg text-gray-900 dark:text-brand-dark-text-primary transition-colors duration-300">
           <Routes>
             {/* Authentication routes (no header) */}
             <Route
@@ -99,6 +102,7 @@ function App() {
                       <Route path="/wishlist" element={<Wishlist />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/orders" element={<Orders />} />
+                      <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
                       
                       {/* Admin routes */}
                       <Route
@@ -133,8 +137,9 @@ function App() {
             isOpen={isChatbotOpen} 
             onToggle={toggleChatbot}
           />
-        </div>
-      </Router>
+          </div>
+        </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }

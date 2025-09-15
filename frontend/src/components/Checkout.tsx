@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, MapPin, User, Phone, Mail, Lock, CheckCircle, Package } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import { apiService } from '../services/apiService';
 
 interface CartItem {
@@ -41,16 +42,15 @@ interface CheckoutFormData {
 }
 
 const Checkout: React.FC = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderNumber, setOrderNumber] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [currentStep, setCurrentStep] = useState<'shipping' | 'payment' | 'review'>('shipping');
   
   const { user } = useAuth();
+  const { cart, loading, clearCart } = useCart();
   const navigate = useNavigate();
+  
+  const cartItems = cart?.items || [];
 
   const {
     register,
@@ -85,8 +85,11 @@ const Checkout: React.FC = () => {
   }, [cartItems]);
 
   useEffect(() => {
-    fetchCartItems();
-  }, []);
+    // Redirect to cart if no items
+    if (!loading && cartItems.length === 0) {
+      navigate('/cart');
+    }
+  }, [cartItems, loading, navigate]);
 
   useEffect(() => {
     // Populate user information if available
@@ -97,37 +100,12 @@ const Checkout: React.FC = () => {
     }
   }, [user, setValue]);
 
-  const fetchCartItems = async () => {
-    if (!user) {
-      navigate('/cart');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const response = await apiService.getCart();
-      const items = response.items || [];
-      
-      if (items.length === 0) {
-        navigate('/cart');
-        return;
-      }
-      
-      setCartItems(items);
-    } catch (err) {
-      console.error('Failed to fetch cart items:', err);
-      setError('Failed to load cart items');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onSubmit = async (data: CheckoutFormData) => {
     try {
       setSubmitting(true);
       setError('');
 
-      // Create order with dummy payment processing
+      // Create order data
       const orderData = {
         shipping_address: {
           first_name: data.firstName,
@@ -141,24 +119,18 @@ const Checkout: React.FC = () => {
           zip_code: data.zipCode,
           country: data.country
         },
-        payment_method: data.paymentMethod,
-        items: cartItems.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: item.predicted_price || item.target_price
-        })),
-        total: cartSummary.total
+        payment_method: data.paymentMethod
       };
 
-      // Simulate order creation (replace with actual API call)
+      // Create order via API
       const orderResponse = await apiService.createOrder(orderData);
-      const generatedOrderNumber = `ORD-${Date.now().toString().slice(-6)}`;
+      const generatedOrderNumber = `ORD-${orderResponse.id.toString().padStart(6, '0')}`;
       
-      setOrderNumber(generatedOrderNumber);
-      setOrderComplete(true);
+      // Clear cart after successful order (handled by backend, but refresh context)
+      await clearCart();
       
-      // Clear cart after successful order
-      await apiService.clearCart();
+      // Redirect to order confirmation page
+      navigate(`/order-confirmation/${generatedOrderNumber}`);
       
     } catch (err) {
       console.error('Failed to create order:', err);
@@ -182,38 +154,6 @@ const Checkout: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (orderComplete) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-6" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Order Confirmed!</h1>
-          <p className="text-gray-600 mb-6">
-            Thank you for your purchase. Your order has been confirmed and will be shipped soon.
-          </p>
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-600">Order Number</p>
-            <p className="text-lg font-bold text-gray-900">{orderNumber}</p>
-          </div>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/orders')}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Track Your Order
-            </button>
-            <button
-              onClick={() => navigate('/products')}
-              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-            >
-              Continue Shopping
-            </button>
-          </div>
-        </div>
       </div>
     );
   }

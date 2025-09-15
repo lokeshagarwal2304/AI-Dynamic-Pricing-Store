@@ -1,80 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiService, Cart, CartItem } from '../services/apiService';
+import { useCart } from '../contexts/CartContext';
 
 const CartView: React.FC = () => {
-  const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
+  const { cart, loading, error, updateCartQuantity, clearCart } = useCart();
   const navigate = useNavigate();
 
-  // Hardcoded userId as requested
-  const userId = 1;
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
-  const fetchCart = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const cartData = await apiService.getCart(userId);
-      setCart(cartData);
-    } catch (err) {
-      console.error('Failed to fetch cart:', err);
-      setError('Failed to load cart items. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleQuantityChange = async (itemId: number, newQuantity: number) => {
-    // Optimistic UI update - immediately update local state
-    if (!cart) return;
-    
-    setCart(prevCart => {
-      if (!prevCart) return prevCart;
-      
-      if (newQuantity <= 0) {
-        // Remove item from local state
-        return {
-          ...prevCart,
-          items: prevCart.items.filter(item => item.id !== itemId)
-        };
-      } else {
-        // Update item quantity in local state
-        return {
-          ...prevCart,
-          items: prevCart.items.map(item => 
-            item.id === itemId 
-              ? { ...item, quantity: newQuantity }
-              : item
-          )
-        };
-      }
-    });
-
-    // Make API call in background
     try {
-      await apiService.updateCartQuantity(itemId, newQuantity);
+      await updateCartQuantity(itemId, newQuantity);
     } catch (err) {
+      // Error handling is done in the context
       console.error('Failed to update quantity:', err);
-      setError('Failed to update quantity. Refreshing cart data...');
-      // If API call fails, refresh cart to get the correct state
-      await fetchCart();
     }
   };
 
-
-  const clearCart = async () => {
+  const handleClearCart = async () => {
     try {
-      await apiService.clearCart();
-      await fetchCart(); // Refresh cart data
+      await clearCart();
     } catch (err) {
+      // Error handling is done in the context
       console.error('Failed to clear cart:', err);
-      setError('Failed to clear cart. Please try again.');
     }
   };
 
@@ -112,7 +59,7 @@ const CartView: React.FC = () => {
             </h1>
             {cart && cart.items.length > 0 && (
               <button
-                onClick={clearCart}
+                onClick={handleClearCart}
                 className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
               >
                 Clear Cart
