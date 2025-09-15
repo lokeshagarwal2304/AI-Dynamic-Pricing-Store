@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .test-image {
+            width: 300px;
+            height: 300px;
+            object-fit: cover;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            margin: 20px;
+            background: #f8f9fa;
+        }
+        
+        .image-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 Image Loading Test</h1>
+        <p>Testing image display for product IDs and verifying assets folder structure.</p>
+        
+        <div id="testResults"></div>
+        
+        <h2>📷 Image Tests</h2>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+            <!-- Test images will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        async function testImages() {
+            const testContainer = document.getElementById('testResults');
+            const imageContainer = document.querySelector('div[style*="flex-wrap"]');
+            
+            // Test specific product IDs
+            const testIds = [1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15];
+            
+            testContainer.innerHTML = '<div class="info">🔍 Testing image loading...</div>';
+            
+            let results = [];
+            
+            for (const id of testIds) {
+                const imagePath = `assets/${id}.jpg`;
+                
+                try {
+                    // Test if image loads
+                    const imageExists = await testImageLoad(imagePath);
+                    
+                    if (imageExists) {
+                        results.push(`<div class="success">✅ Product ID ${id}: assets/${id}.jpg - LOADED</div>`);
+                        
+                        // Add image to display
+                        const imageDiv = document.createElement('div');
+                        imageDiv.style.textAlign = 'center';
+                        imageDiv.innerHTML = `
+                            <img src="${imagePath}" class="test-image" alt="Product ${id}">
+                            <div><strong>ID: ${id}</strong></div>
+                            <div style="font-size: 0.8rem; color: #666;">assets/${id}.jpg</div>
+                        `;
+                        imageContainer.appendChild(imageDiv);
+                    } else {
+                        results.push(`<div class="error">❌ Product ID ${id}: assets/${id}.jpg - NOT FOUND</div>`);
+                    }
+                } catch (error) {
+                    results.push(`<div class="error">⚠️ Product ID ${id}: Error - ${error.message}</div>`);
+                }
+            }
+            
+            // Load CSV data to verify product names
+            try {
+                const response = await fetch('backend/dataset.csv');
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                const headers = lines[0].split(',');
+                
+                const productNameIndex = headers.findIndex(h => h.includes('product_name'));
+                const productIdIndex = headers.findIndex(h => h.includes('product_id'));
+                
+                results.push('<div class="info"><br>📊 Product Information from CSV:</div>');
+                
+                for (let i = 1; i <= Math.min(10, lines.length - 1); i++) {
+                    const values = lines[i].split(',');
+                    const id = values[productIdIndex];
+                    const name = values[productNameIndex]?.replace(/"/g, '');
+                    
+                    if (testIds.includes(parseInt(id))) {
+                        results.push(`<div class="info">📦 ID ${id}: ${name}</div>`);
+                    }
+                }
+                
+            } catch (error) {
+                results.push(`<div class="error">❌ Could not load CSV data: ${error.message}</div>`);
+            }
+            
+            testContainer.innerHTML = results.join('');
+        }
+        
+        function testImageLoad(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = src;
+            });
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', testImages);
+    </script>
+</body>
+</html>

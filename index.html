@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dynamic Pricing - Product Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            margin: 50px 0;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .products-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .product-card:hover .product-image {
+            transform: scale(1.05);
+        }
+
+        .product-info {
+            padding: 20px;
+        }
+
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .product-id {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .product-details {
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .price-info {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .base-price {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .target-price {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .error {
+            text-align: center;
+            color: #ff4444;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .stats-bar {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .products-container {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .product-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Image error fallback */
+        .product-image-error {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 3rem;
+            border-radius: 8px 8px 0 0;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .product-image-error::after {
+            content: "Image Loading...";
+            font-size: 0.9rem;
+            margin-top: 10px;
+            color: #868e96;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛍️ AI Dynamic Pricing Store</h1>
+        <p>Intelligent Product Catalog with AI-Powered Pricing</p>
+    </div>
+
+    <div id="statsBar" class="stats-bar" style="display: none;">
+        <div class="stat-item">
+            <div class="stat-number" id="totalProducts">0</div>
+            <div class="stat-label">Products</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="totalCategories">0</div>
+            <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="avgPrice">$0</div>
+            <div class="stat-label">Avg Price</div>
+        </div>
+    </div>
+
+    <div id="loadingDiv" class="loading">
+        <div class="loading-spinner"></div>
+        Loading products from dataset...
+    </div>
+
+    <div id="errorDiv" class="error" style="display: none;"></div>
+
+    <div id="productsContainer" class="products-container"></div>
+
+    <script>
+        class ProductCatalog {
+            constructor() {
+                this.products = [];
+                this.loadingDiv = document.getElementById('loadingDiv');
+                this.errorDiv = document.getElementById('errorDiv');
+                this.productsContainer = document.getElementById('productsContainer');
+                this.statsBar = document.getElementById('statsBar');
+            }
+
+            async init() {
+                try {
+                    console.log('🚀 Starting to load products...');
+                    await this.loadCSVData();
+                    this.displayProducts();
+                    this.updateStats();
+                    this.hideLoading();
+                } catch (error) {
+                    console.error('❌ Error loading products:', error);
+                    this.showError('Failed to load products: ' + error.message);
+                }
+            }
+
+            async loadCSVData() {
+                try {
+                    console.log('📄 Fetching CSV file...');
+                    const response = await fetch('backend/dataset.csv');
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to load CSV file (${response.status}): ${response.statusText}`);
+                    }
+                    
+                    const csvText = await response.text();
+                    console.log('✅ CSV loaded successfully');
+                    
+                    this.products = this.parseCSV(csvText);
+                    console.log(`📊 Parsed ${this.products.length} products`);
+                    
+                } catch (error) {
+                    throw new Error(`Error loading CSV: ${error.message}`);
+                }
+            }
+
+            parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length < 2) {
+                    throw new Error('CSV file appears to be empty or invalid');
+                }
+
+                const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
+                console.log('📋 CSV Headers:', headers);
+
+                const products = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue; // Skip empty lines
+
+                    const values = this.parseCSVLine(line);
+                    
+                    if (values.length !== headers.length) {
+                        console.warn(`⚠️ Line ${i + 1} has ${values.length} values but expected ${headers.length}. Skipping.`);
+                        continue;
+                    }
+
+                    const product = {};
+                    headers.forEach((header, index) => {
+                        let value = values[index];
+                        
+                        // Convert numeric values
+                        if (header.includes('price') || header.includes('rating') || header.includes('inventory') || header.includes('sales') || header.includes('cost') || header.includes('review_count')) {
+                            const num = parseFloat(value);
+                            product[header] = isNaN(num) ? value : num;
+                        } else {
+                            product[header] = value;
+                        }
+                    });
+
+                    products.push(product);
+                }
+
+                return products;
+            }
+
+            parseCSVLine(line) {
+                const values = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        values.push(current.trim().replace(/"/g, ''));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                values.push(current.trim().replace(/"/g, ''));
+                return values;
+            }
+
+            displayProducts() {
+                console.log('🎨 Displaying products...');
+                
+                if (this.products.length === 0) {
+                    this.showError('No products found in the dataset');
+                    return;
+                }
+
+                this.productsContainer.innerHTML = '';
+
+                this.products.forEach((product, index) => {
+                    const productCard = this.createProductCard(product, index);
+                    this.productsContainer.appendChild(productCard);
+                });
+
+                console.log(`✅ Displayed ${this.products.length} product cards`);
+            }
+
+            createProductCard(product, index) {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                
+                const productId = product.product_id || index + 1;
+                const productName = product.product_name || 'Unnamed Product';
+                const imagePath = `assets/${productId}.jpg`;
+                
+                card.innerHTML = `
+                    <div class="product-image-container">
+                        <img class="product-image" 
+                             src="${imagePath}" 
+                             alt="${productName}"
+                             onerror="this.parentNode.innerHTML='<div class=\'product-image-error\'>🖼️<span style=\'font-size:0.9rem;margin-top:10px;color:#868e96\'>Image: ${productId}.jpg</span></div>'"
+                             onload="this.style.opacity='1'"
+                             style="opacity:0;transition:opacity 0.3s ease"
+                             loading="lazy">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${productName}</h3>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                            <span class="product-id">ID: ${productId}</span>
+                            <small style="color:#6c757d;font-size:0.75rem">📷 ${productId}.jpg</small>
+                        </div>
+                        
+                        ${this.createProductDetails(product)}
+                        
+                        ${this.createPriceInfo(product)}
+                    </div>
+                `;
+
+                // Add click interaction
+                card.addEventListener('click', () => {
+                    this.showProductDetails(product);
+                });
+
+                return card;
+            }
+
+            createProductDetails(product) {
+                const details = [];
+                
+                if (product.category) {
+                    details.push(`<div class="detail-item"><span class="detail-label">Category:</span><span class="detail-value">${product.category}</span></div>`);
+                }
+                
+                if (product.rating) {
+                    details.push(`<div class="detail-item"><span class="detail-label">Rating:</span><span class="detail-value">⭐ ${product.rating}</span></div>`);
+                }
+                
+                if (product.inventory_level) {
+                    details.push(`<div class="detail-item"><span class="detail-label">Stock:</span><span class="detail-value">${product.inventory_level}</span></div>`);
+                }
+                
+                if (product.brand_tier) {
+                    details.push(`<div class="detail-item"><span class="detail-label">Brand:</span><span class="detail-value">${product.brand_tier}</span></div>`);
+                }
+
+                return details.length > 0 ? `<div class="product-details">${details.join('')}</div>` : '';
+            }
+
+            createPriceInfo(product) {
+                let priceHtml = '';
+                
+                if (product.base_price || product.target_price) {
+                    priceHtml = '<div class="price-info">';
+                    
+                    if (product.base_price) {
+                        priceHtml += `<div class="base-price">$${parseFloat(product.base_price).toFixed(2)}</div>`;
+                    }
+                    
+                    if (product.target_price && product.target_price !== product.base_price) {
+                        priceHtml += `<div class="target-price">Target: $${parseFloat(product.target_price).toFixed(2)}</div>`;
+                    }
+                    
+                    priceHtml += '</div>';
+                }
+                
+                return priceHtml;
+            }
+
+            updateStats() {
+                const totalProducts = this.products.length;
+                const categories = new Set(this.products.map(p => p.category).filter(c => c));
+                const totalCategories = categories.size;
+                
+                const prices = this.products.map(p => p.base_price || p.target_price).filter(p => p && !isNaN(p));
+                const avgPrice = prices.length > 0 ? prices.reduce((sum, price) => sum + price, 0) / prices.length : 0;
+
+                document.getElementById('totalProducts').textContent = totalProducts;
+                document.getElementById('totalCategories').textContent = totalCategories;
+                document.getElementById('avgPrice').textContent = `$${avgPrice.toFixed(2)}`;
+                
+                this.statsBar.style.display = 'flex';
+            }
+
+            showProductDetails(product) {
+                const details = Object.entries(product)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n');
+                
+                alert(`Product Details:\n\n${details}`);
+            }
+
+            hideLoading() {
+                this.loadingDiv.style.display = 'none';
+            }
+
+            showError(message) {
+                this.hideLoading();
+                this.errorDiv.textContent = message;
+                this.errorDiv.style.display = 'block';
+                console.error('🚨 Error:', message);
+            }
+        }
+
+        // Initialize the product catalog when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🌟 AI Dynamic Pricing Store - Product Display');
+            console.log('📦 Initializing product catalog...');
+            
+            const catalog = new ProductCatalog();
+            catalog.init();
+        });
+
+        // Add some additional features
+        window.addEventListener('load', () => {
+            console.log('✅ Page fully loaded');
+            
+            // Add keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    // Close any modals or reset view
+                    console.log('🔙 Escape pressed');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
