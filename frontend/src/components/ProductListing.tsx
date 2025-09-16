@@ -19,6 +19,7 @@ interface Product {
   material_cost: number;
   predicted_price?: number;
   confidence?: number;
+  image_url?: string;
 }
 
 const ProductListing: React.FC = () => {
@@ -366,8 +367,20 @@ const ProductListing: React.FC = () => {
                   return (
                     <div key={product.product_id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                       <div className="flex p-4 gap-4">
-                        <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Package className="h-8 w-8 text-gray-400" />
+                        <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <img
+                            src={product.image_url || `/assets/${product.product_id}.jpg`}
+                            alt={product.product_name}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4-8-4m16 0v10l-8 4-8-4V7"></path></svg></div>';
+                              }
+                            }}
+                          />
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -435,8 +448,20 @@ const ProductListing: React.FC = () => {
                 return (
                   <div key={product.product_id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 group">
                     <div className="relative">
-                      <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 rounded-t-xl flex items-center justify-center">
-                        <Package className="h-16 w-16 text-gray-400" />
+                      <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 rounded-t-xl flex items-center justify-center overflow-hidden">
+                        <img
+                          src={product.image_url || `/assets/${product.product_id}.jpg`}
+                          alt={product.product_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4-8-4m16 0v10l-8 4-8-4V7"></path></svg></div>';
+                            }
+                          }}
+                        />
                       </div>
                       
                       {/* Wishlist button overlay */}

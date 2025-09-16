@@ -55,6 +55,52 @@ label_encoders = {}
 feature_columns = []
 model_metrics = {}
 
+# Custom product name to image mapping
+product_image_mapping = {
+    "A-Line Skirt": "1.jpg",
+    "Ankle Boots": "2.jpg",
+    "Athletic Shorts": "3.jpg",
+    "Ballet Flats": "4.jpg",
+    "Bracelet": "5.jpg",
+    "Canvas Sneakers": "6.jpg",
+    "Cardigan": "7.jpg",
+    "Cashmere Sweater": "8.jpg",
+    "Casual Button-Down Shirt": "9.jpg",
+    "Chelsea Boots": "10.jpg",
+    "Classic Denim Jeans": "11.jpg",
+    "Clutch Bag": "12.jpg",
+    "Cocktail Dress": "13.jpg",
+    "Compression Leggings": "14.jpg",
+    "Cross-Training Shoes": "15.jpg",
+    "Denim Jacket": "16.jpg",
+    "Designer Handbag": "17.jpg",
+    "Dress Shoes": "18.jpg",
+    "Elegant Summer Dress": "19.jpg",
+    "Evening Gown": "20.jpg",
+    "Flannel Shirt": "21.jpg",
+    "Formal Blazer": "22.jpg",
+    "Graphic T-Shirt": "23.jpg",
+    "Henley Shirt": "24.jpg",
+    "High-Waisted Leggings": "25.jpg",
+    "Hiking Boots": "26.jpg",
+    "Hoodie": "27.jpg",
+    "Leather Boots": "28.jpg",
+    "Leather Crossbody Bag": "29.jpg",
+    "Leather Jacket": "30.jpg",
+    "Loafers": "31.jpg",
+    "Maxi Dress": "32.jpg",
+    "Merino Wool Sweater": "33.jpg",
+    "Midi Skirt": "34.jpg",
+    "Oxford Shirt": "35.jpg",
+    "Parka": "36.jpg",
+    "Peacoat": "37.jpg",
+    "Pencil Skirt": "38.jpg",
+    "Polo Shirt": "39.jpg",
+    "Premium Cotton T-Shirt": "40.jpg",
+    "Puffer Jacket": "41.jpg"
+}
+
+
 # In-memory user storage (admin only for backward compatibility)
 fake_users_db = {}
 
@@ -116,6 +162,7 @@ class ProductResponse(BaseModel):
     material_cost: float
     predicted_price: Optional[float] = None
     confidence: Optional[float] = None
+    image_url: Optional[str] = None
 
 class PredictionResponse(BaseModel):
     predicted_price: float
@@ -601,8 +648,11 @@ async def get_products():
             try:
                 # Get AI prediction for each product
                 prediction = predict_product_price_internal(row)
+                # Get custom image for this product, fallback to sequential mapping
+                image_filename = product_image_mapping.get(row['product_name'], f'{index + 1}.jpg')
+                
                 product = {
-                    'product_id': index + 1,
+                    'product_id': int(row['product_id']),
                     'product_name': row['product_name'],
                     'category': row['category'],
                     'base_price': float(row['base_price']),
@@ -616,13 +666,17 @@ async def get_products():
                     'brand_tier': row['brand_tier'],
                     'material_cost': float(row['material_cost']),
                     'predicted_price': prediction['predicted_price'],
-                    'confidence': prediction['confidence']
+                    'confidence': prediction['confidence'],
+                    'image_url': f'/assets/{image_filename}'
                 }
                 products.append(product)
             except Exception as e:
                 # Fallback to original price if prediction fails
+                # Get custom image for this product, fallback to sequential mapping
+                image_filename = product_image_mapping.get(row['product_name'], f'{index + 1}.jpg')
+                
                 product = {
-                    'product_id': index + 1,
+                    'product_id': int(row['product_id']),
                     'product_name': row['product_name'],
                     'category': row['category'],
                     'base_price': float(row['base_price']),
@@ -636,7 +690,8 @@ async def get_products():
                     'brand_tier': row['brand_tier'],
                     'material_cost': float(row['material_cost']),
                     'predicted_price': float(row['target_price']),
-                    'confidence': 0.85
+                    'confidence': 0.85,
+                    'image_url': f'/assets/{image_filename}'
                 }
                 products.append(product)
         
