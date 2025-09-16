@@ -34,6 +34,8 @@ interface Product {
 }
 
 const AdminDashboard: React.FC = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  
   const [isTraining, setIsTraining] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState<string>('');
@@ -93,7 +95,7 @@ const AdminDashboard: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/products');
+      const response = await fetch(`${API_BASE_URL}/products`);
       if (response.ok) {
         const data = await response.json();
         setProducts(data.products || []);
@@ -107,7 +109,7 @@ const AdminDashboard: React.FC = () => {
 
   const checkServerStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8000/');
+      const response = await fetch(`${API_BASE_URL}/`);
       if (response.ok) {
         setServerStatus('online');
       } else {
@@ -121,7 +123,7 @@ const AdminDashboard: React.FC = () => {
   const handleRetrain = async () => {
     setIsTraining(true);
     try {
-      const response = await fetch('http://localhost:8000/train', {
+      const response = await fetch(`${API_BASE_URL}/train`, {
         method: 'POST',
       });
       if (response.ok) {
@@ -568,7 +570,7 @@ const AdminDashboard: React.FC = () => {
                     <div>
                       <p className="font-medium text-gray-900">AI Service</p>
                       <p className="text-sm text-gray-600">
-                        {serverStatus === 'online' ? 'Running on http://localhost:8000' : 'Offline - Start with: cd backend && python run.py'}
+                        {serverStatus === 'online' ? `Running on ${API_BASE_URL}` : 'Offline - Start the backend server'}
                       </p>
                     </div>
                   </div>

@@ -66,9 +66,11 @@ const ProductListing: React.FC = () => {
     fetchProducts();
   }, []);
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:8000/products');
+      const response = await fetch(`${API_BASE_URL}/products`);
       if (!response.ok) {
         throw new Error('Backend server is not running');
       }
@@ -78,7 +80,7 @@ const ProductListing: React.FC = () => {
       const productsWithPredictions = await Promise.all(
         data.products.map(async (product: Product) => {
           try {
-            const predictionResponse = await fetch('http://localhost:8000/predict', {
+            const predictionResponse = await fetch(`${API_BASE_URL}/predict`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
